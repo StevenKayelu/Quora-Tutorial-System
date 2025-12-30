@@ -148,72 +148,95 @@ const Users = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
   // ------------------------------ Submit ------------------------------
-  const handleSubmit = async () => {
-    if (!formData.first_name || !formData.last_name || !formData.gender || !formData.email) {
-      showNotification("First name, last name, gender and email are required", "warning");
-      return;
-    }
+ // ------------------------------ Submit ------------------------------
+const handleSubmit = async () => {
+  if (!formData.first_name || !formData.last_name || !formData.gender || !formData.email) {
+    showNotification("First name, last name, gender and email are required", "warning");
+    return;
+  }
 
-    if (!/^[0-9]{10}$/.test(formData.mobile)) {
-      showNotification("Mobile number must be exactly 10 digits", "warning");
-      return;
-    }
+  if (!/^[0-9]{10}$/.test(formData.mobile)) {
+    showNotification("Mobile number must be exactly 10 digits", "warning");
+    return;
+  }
 
-    if (formData.password && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{7}$/.test(formData.password)) {
-      showNotification("Password must be exactly 7 characters and include letters and numbers", "warning");
-      return;
-    }
+  if (formData.password && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{7}$/.test(formData.password)) {
+    showNotification(
+      "Password must be exactly 7 characters and include letters and numbers",
+      "warning"
+    );
+    return;
+  }
 
-    try {
-      if (selectedUser) {
-        await axiosInstance.put(`${API_BASE_URL}/api/auth/${selectedUser.id}`, {
-          firstName: formData.first_name,
-          lastName: formData.last_name,
-          email: formData.email,
-          gender: formData.gender,
-          role: Number(formData.role),
-          status: formData.status,
-          mobile: formData.mobile,
-          newPassword: formData.password || undefined,
-        });
-        showNotification("User updated", "success");
-      } else {
-        await axiosInstance.post(`${API_BASE_URL}/api/auth/register`, {
-          firstName: formData.first_name,
-          lastName: formData.last_name,
-          email: formData.email,
-          gender: formData.gender,
-          role: Number(formData.role),
-          password: formData.password,
-          mobile: formData.mobile,
-        });
-        showNotification("User created", "success");
+  try {
+    if (selectedUser) {
+      // Prepare payload for update
+      const payload: any = {
+        firstName: formData.first_name,
+        lastName: formData.last_name,
+        email: formData.email,
+        gender: formData.gender,
+        role: Number(formData.role),
+        status: formData.status,
+        mobile: formData.mobile,
+      };
+
+      // Only include newPassword if admin typed something
+      if (formData.password) {
+        payload.newPassword = formData.password;
       }
-      setOpenDialog(false);
-      setFormData({ first_name: "", last_name: "", email: "", status: "", gender: "", role: "", password: "", mobile: "" });
-      setSelectedUser(null);
-      fetchUsers();
-    } catch (error) {
-      console.error(error);
-      showNotification("Action failed", "error");
-    }
-  };
 
-  // ------------------------------ Edit user ------------------------------
-  const handleEdit = (user: UserType) => {
-    setSelectedUser(user);
+      await axiosInstance.put(`${API_BASE_URL}/api/auth/${selectedUser.id}`, payload);
+      showNotification("User updated", "success");
+    } else {
+      await axiosInstance.post(`${API_BASE_URL}/api/auth/register`, {
+        firstName: formData.first_name,
+        lastName: formData.last_name,
+        email: formData.email,
+        gender: formData.gender,
+        role: Number(formData.role),
+        password: formData.password,
+        mobile: formData.mobile,
+      });
+      showNotification("User created", "success");
+    }
+
+    setOpenDialog(false);
     setFormData({
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.u_email,
-      gender: user.gender || "",
-      status: user.status || "",
-      role: String(user.u_role),
+      first_name: "",
+      last_name: "",
+      email: "",
+      status: "",
+      gender: "",
+      role: "",
       password: "",
-      mobile: user.mobile || "",
+      mobile: "",
     });
-    setOpenDialog(true);
-  };
+    setSelectedUser(null);
+    fetchUsers();
+  } catch (error) {
+    console.error(error);
+    showNotification("Action failed", "error");
+  }
+};
+
+ // ------------------------------ Edit user ------------------------------
+const handleEdit = (user: UserType) => {
+  setSelectedUser(user);
+
+  setFormData({
+    first_name: user.first_name || "",
+    last_name: user.last_name || "",
+    email: user.u_email || "",
+    gender: user.gender || "",
+    status: user.status || "",
+    role: String(user.u_role) || "",
+    password: "", // Keep password empty for update
+    mobile: user.mobile || "",
+  });
+
+  setOpenDialog(true);
+};
 
   // ------------------------------ Delete user ------------------------------
   const handleDeleteClick = (id: string) => {
