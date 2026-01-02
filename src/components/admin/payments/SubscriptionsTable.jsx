@@ -229,19 +229,19 @@ export default function SubscriptionsTable() {
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>Assigning to: {selectedUser?.user_name}</DialogContentText>
           <Select
-            fullWidth
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            displayEmpty
-          >
-            <MenuItem disabled value="">Select course</MenuItem>
-            {courses
-              .filter(course => !selectedUser?.courses.some(sub => sub.course_id === course.id))
-              .map(course => (
-                <MenuItem key={course.id} value={course.id}>{course.course_name}</MenuItem>
-              ))
-            }
-          </Select>
+  fullWidth
+  value={selectedCourse}
+  onChange={(e) => setSelectedCourse(e.target.value)}
+  displayEmpty
+>
+  <MenuItem disabled value="">Select course</MenuItem>
+  {courses.map(course => (
+    <MenuItem key={course.id} value={course.id}>
+      {course.course_name}
+    </MenuItem>
+  ))}
+</Select>
+
         </DialogContent>
         <DialogActions sx={{ p: 2, flexDirection: isMobile ? "column" : "row" }}>
           <Button fullWidth={isMobile} onClick={() => setOpen(false)}>Cancel</Button>
