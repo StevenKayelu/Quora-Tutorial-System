@@ -178,11 +178,24 @@ export default function SubscriptionsTable() {
           sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="subtitle2" fontWeight="bold">{user.user_name}</Typography>
-              <Chip label={user.courses.length} size="small" variant="outlined" sx={{ height: 20, fontSize: 10 }} />
-            </Stack>
-          </AccordionSummary>
+  <Stack direction="row" spacing={1} alignItems="center">
+    <Typography
+      variant="subtitle2"
+      fontWeight="bold"
+      color={user.courses.length === 0 ? 'error' : 'text.primary'}
+    >
+      {user.user_name}
+    </Typography>
+    <Chip
+      label={user.courses.length}
+      size="small"
+      variant="outlined"
+      sx={{ height: 20, fontSize: 10 }}
+      color={user.courses.length === 0 ? 'error' : 'default'}
+    />
+  </Stack>
+</AccordionSummary>
+
 
           <AccordionDetails sx={{ p: isMobile ? 1.5 : 2, pt: 0 }}>
             <Button
@@ -262,25 +275,6 @@ export default function SubscriptionsTable() {
           </Button>
         </DialogActions>
       </Dialog>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-  <Stack direction="row" spacing={1} alignItems="center">
-    <Typography 
-      variant="subtitle2" 
-      fontWeight="bold"
-      color={user.courses.length === 0 ? 'error' : 'text.primary'}
-    >
-      {user.user_name}
-    </Typography>
-    <Chip 
-      label={user.courses.length} 
-      size="small" 
-      variant="outlined" 
-      sx={{ height: 20, fontSize: 10 }} 
-      color={user.courses.length === 0 ? 'error' : 'default'}
-    />
-  </Stack>
-</AccordionSummary>
-
 
       {/* Confirm Delete Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs">
