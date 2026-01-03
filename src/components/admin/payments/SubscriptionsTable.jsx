@@ -50,29 +50,32 @@ export default function SubscriptionsTable() {
     const res = await axiosInstance.get(`${API_SUBSCRIPTIONS}/users`);
     const data = res.data?.data || [];
 
-    const grouped = Object.values(
-      data.reduce((acc, row) => {
-        if (!acc[row.user_id]) {
-          acc[row.user_id] = {
-            user_id: row.user_id,
-            user_name: row.user_name,
-            courses: []
-          };
-        }
-        if (row.subscription_id) { // only push if user has subscription
-          acc[row.user_id].courses.push({
-            id: row.subscription_id,
-            subscription_id: row.subscription_id,
-            course_id: row.course_id,
-            course_title: row.course_title,
-            status: row.status,
-            subscribed_at: row.subscribed_at,
-            source: row.source
-          });
-        }
-        return acc;
-      }, {})
-    );
+       const grouped = Object.values(
+  data.reduce((acc, row) => {
+    if (!acc[row.user_id]) {
+      acc[row.user_id] = {
+        user_id: row.user_id,
+        user_name: row.user_name,
+        courses: []
+      };
+    }
+
+    // Only push if there is a subscription
+    if (row.subscription_id) {
+      acc[row.user_id].courses.push({
+        id: row.subscription_id,
+        subscription_id: row.subscription_id,
+        course_id: row.course_id,
+        course_title: row.course_title,
+        status: row.status,
+        subscribed_at: row.subscribed_at,
+        source: row.source
+      });
+    }
+
+    return acc;
+  }, {})
+);
     setGroupedUsers(grouped);
   }
 
@@ -259,6 +262,25 @@ export default function SubscriptionsTable() {
           </Button>
         </DialogActions>
       </Dialog>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+  <Stack direction="row" spacing={1} alignItems="center">
+    <Typography 
+      variant="subtitle2" 
+      fontWeight="bold"
+      color={user.courses.length === 0 ? 'error' : 'text.primary'}
+    >
+      {user.user_name}
+    </Typography>
+    <Chip 
+      label={user.courses.length} 
+      size="small" 
+      variant="outlined" 
+      sx={{ height: 20, fontSize: 10 }} 
+      color={user.courses.length === 0 ? 'error' : 'default'}
+    />
+  </Stack>
+</AccordionSummary>
+
 
       {/* Confirm Delete Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs">
