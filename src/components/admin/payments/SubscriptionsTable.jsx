@@ -35,11 +35,9 @@ export default function SubscriptionsTable() {
 
   const [groupedUsers, setGroupedUsers] = useState([]);
   const [courses, setCourses] = useState([]);
-
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState("");
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
 
@@ -61,15 +59,17 @@ export default function SubscriptionsTable() {
             courses: []
           };
         }
-        acc[row.user_id].courses.push({
-          id: row.subscription_id,
-          subscription_id: row.subscription_id,
-          course_id: row.course_id,
-          course_title: row.course_title,
-          status: row.status,
-          subscribed_at: row.subscribed_at,
-          source: row.source
-        });
+        if (row.subscription_id) { // only push if user has subscription
+          acc[row.user_id].courses.push({
+            id: row.subscription_id,
+            subscription_id: row.subscription_id,
+            course_id: row.course_id,
+            course_title: row.course_title,
+            status: row.status,
+            subscribed_at: row.subscribed_at,
+            source: row.source
+          });
+        }
         return acc;
       }, {})
     );
@@ -116,18 +116,26 @@ export default function SubscriptionsTable() {
     fetchSubscriptions();
   }
 
+  async function updateStatus(subId, newStatus) {
+    await axiosInstance.put(`${API_SUBSCRIPTIONS}/${subId}/status`, { status: newStatus });
+    fetchSubscriptions();
+  }
+
   const columns = [
     { field: "course_title", headerName: "Course", flex: 1, minWidth: 150 },
     {
       field: "status",
       headerName: "Status",
-      width: 120,
-      renderCell: ({ value }) => (
-        <Chip
-          label={value}
-          color={value === "active" ? "success" : "default"}
+      width: 140,
+      renderCell: ({ row }) => (
+        <Select
+          value={row.status}
           size="small"
-        />
+          onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
+        >
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="inactive">Inactive</MenuItem>
+        </Select>
       )
     },
     {
@@ -143,7 +151,7 @@ export default function SubscriptionsTable() {
     {
       field: "actions",
       headerName: "Action",
-      width: 110,
+      width: 120,
       sortable: false,
       renderCell: ({ row }) => (
         <Button
@@ -162,9 +170,9 @@ export default function SubscriptionsTable() {
   return (
     <Box sx={{ width: "100%", overflowX: "hidden" }}>
       {groupedUsers.map((user) => (
-        <Accordion 
-          key={user.user_id} 
-          sx={{ mb: 1.5, boxShadow: 'none', border: `1px solid ${theme.palette.divider}` }}
+        <Accordion
+          key={user.user_id}
+          sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -178,10 +186,7 @@ export default function SubscriptionsTable() {
               variant="contained"
               sx={{ mb: 2, textTransform: 'none' }}
               fullWidth
-              onClick={() => {
-                setSelectedUser(user);
-                setOpen(true);
-              }}
+              onClick={() => { setSelectedUser(user); setOpen(true); }}
             >
               Assign New Course
             </Button>
@@ -192,16 +197,23 @@ export default function SubscriptionsTable() {
                   <Box key={course.id} sx={{ p: 1.5, borderRadius: 1, bgcolor: 'action.hover', border: `1px solid ${theme.palette.divider}` }}>
                     <Stack direction="row" justifyContent="space-between" mb={1}>
                       <Typography variant="body2" fontWeight="bold">{course.course_title}</Typography>
-                      <Chip label={course.status} size="small" color={course.status === "active" ? "success" : "default"} />
+                      <Select
+                        size="small"
+                        value={course.status}
+                        onChange={(e) => updateStatus(course.subscription_id, e.target.value)}
+                      >
+                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="inactive">Inactive</MenuItem>
+                      </Select>
                     </Stack>
                     <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
                       Enrolled: {formatDate(course.subscribed_at)}
                     </Typography>
-                    <Button 
-                      fullWidth 
-                      size="small" 
+                    <Button
+                      fullWidth
+                      size="small"
                       variant="outlined"
-                      color="error" 
+                      color="error"
                       onClick={() => requestDelete(course.subscription_id)}
                     >
                       Remove Subscription
@@ -229,19 +241,16 @@ export default function SubscriptionsTable() {
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>Assigning to: {selectedUser?.user_name}</DialogContentText>
           <Select
-  fullWidth
-  value={selectedCourse}
-  onChange={(e) => setSelectedCourse(e.target.value)}
-  displayEmpty
->
-  <MenuItem disabled value="">Select course</MenuItem>
-  {courses.map(course => (
-    <MenuItem key={course.id} value={course.id}>
-      {course.course_name}
-    </MenuItem>
-  ))}
-</Select>
-
+            fullWidth
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
+            displayEmpty
+          >
+            <MenuItem disabled value="">Select course</MenuItem>
+            {courses.map(course => (
+              <MenuItem key={course.id} value={course.id}>{course.course_name}</MenuItem>
+            ))}
+          </Select>
         </DialogContent>
         <DialogActions sx={{ p: 2, flexDirection: isMobile ? "column" : "row" }}>
           <Button fullWidth={isMobile} onClick={() => setOpen(false)}>Cancel</Button>
