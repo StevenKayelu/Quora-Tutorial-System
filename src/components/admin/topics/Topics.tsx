@@ -119,10 +119,6 @@ useEffect(() => {
       setSelectedTerm(prev =>
         prev ?? (terms.length > 0 ? terms[0].id : null)
       );
-
-      if (terms.length > 0) {
-        setTestPaperType(getTestTypeForTerm(terms[0].term_number));
-      }
     } catch (err) {
       console.error(err);
       showSnack("error", "Failed to load terms");
@@ -146,12 +142,6 @@ const loadTestPapers = async () => {
       `${API_BASE}/api/term-tests/course/${selectedCourse}/term/${selectedTerm}`
     );
     let filteredMaterials = res.data.data || [];
-    
-    if (testPaperType !== "all") {
-      filteredMaterials = filteredMaterials.filter(
-        (m: any) => m.test_type?.toLowerCase() === testPaperType
-      );
-    }
 
     setMaterials(filteredMaterials);
   } catch (err) {
@@ -161,6 +151,22 @@ const loadTestPapers = async () => {
     setLoading(false);
   }
 };
+// Auto-set testPaperType when selectedTerm changes
+useEffect(() => {
+  if (selectedCategory !== "Test Papers" || !selectedTerm) return;
+
+  const term = courseTerms.find(t => t.id === selectedTerm);
+  if (term) {
+    const type = getTestTypeForTerm(term.term_number);
+    setTestPaperType(type);
+  }
+}, [selectedTerm, selectedCategory, courseTerms]);
+
+// Load content AFTER testPaperType changes
+useEffect(() => {
+  if (!selectedCourse || !selectedTerm) return;
+  loadTermContent();
+}, [selectedCourse, selectedTerm, selectedCategory, testPaperType]);
 
 
 const loadTermContent = async () => {
@@ -252,15 +258,6 @@ const handleEditSubtopic = (subtopic: any) => {
   setEditingSubtopic(subtopic);
   setOpenSubtopicModal(true);
 };
-useEffect(() => {
-  if (selectedCategory !== "Test Papers" || !selectedTerm) return;
-
-  const term = courseTerms.find(t => t.id === selectedTerm);
-  if (term) {
-    setTestPaperType(getTestTypeForTerm(term.term_number));
-  }
-}, [selectedTerm, selectedCategory, courseTerms]);
-
 
 const getTestTypeForTerm = (termNumber: number) => {
   switch (termNumber) {
