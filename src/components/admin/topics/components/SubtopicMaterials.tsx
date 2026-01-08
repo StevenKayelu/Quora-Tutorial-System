@@ -120,82 +120,72 @@ export default function SubtopicMaterials({
 const handleDownload = async (material: any) => {
   try {
     setDownloadingId(material.id);
-    await refreshAccessToken();
 
     const url = getDownloadUrl(material);
     if (!url) throw new Error("Download not supported");
 
-    const response = await axiosInstance.get(url, {
-      responseType: "blob",
-      validateStatus: () => true, // 👈 IMPORTANT
-    });
+    // Backend returns { url: signedUrl }
+    const res = await axiosInstance.get(url);
+    const signedUrl = res.data?.url;
 
-    // ❌ Backend error → JSON → STOP
-    if (response.headers["content-type"]?.includes("application/json")) {
-      const text = await response.data.text();
-      throw new Error(text);
+    if (!signedUrl) {
+      throw new Error("No download URL received");
     }
 
-    const blob = new Blob([response.data], { type: "application/pdf" });
+    // Let browser handle the download
+    const a = document.createElement("a");
+    a.href = signedUrl;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
 
-    const filename =
-      response.headers["content-disposition"]
-        ?.match(/filename="?(.+?)"?$/)?.[1] ||
-      `${material.title || "document"}.pdf`;
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-
-    link.remove();
-    URL.revokeObjectURL(link.href);
-    showSnackbar(`Downloaded "${filename}"`);
+    showSnackbar(`Downloading "${material.title}"`);
   } catch (err) {
     console.error(err);
-    showSnackbar("Download failed (invalid PDF)", "error");
+    showSnackbar("Download failed", "error");
   } finally {
     setDownloadingId(null);
   }
 };
 
 
-  const handlePreview = async (material: any) => {
-    try {
-      const { url, video } = getPreviewUrl(material);
+const handlePreview = async (material: any) => {
+  const { url, video } = getPreviewUrl(material);
 
-      if (video) {
-        setPreviewUrl(url);
-        setIsVideoPreview(true);
-        setPreviewTitle(material.title || "Preview");
-        setPreviewOpen(true);
-        return;
-      }
+  if (video) {
+    setPreviewUrl(url);
+    setIsVideoPreview(true);
+    setPreviewTitle(material.title || "Preview");
+    setPreviewOpen(true);
+    return;
+  }
 
-      const res = await axiosInstance.get(url, {
-        responseType: "blob",
-      });
+  try {
+    // Backend returns { url: signedUrl }
+    const res = await axiosInstance.get(url);
+    const signedUrl = res.data?.url;
 
-      const blobUrl = URL.createObjectURL(res.data);
-
-      setPreviewUrl(blobUrl);
-      setPreviewTitle(material.title || "Preview");
-      setIsVideoPreview(false);
-      setPreviewOpen(true);
-    } catch (err) {
-      console.error(err);
-      showSnackbar("Preview failed", "error");
+    if (!signedUrl) {
+      throw new Error("No preview URL received");
     }
-  };
 
-  const handleClosePreview = () => {
-    if (previewUrl && !isVideoPreview) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewOpen(false);
-    setPreviewUrl(null);
-  };
+    setPreviewUrl(signedUrl);
+    setPreviewTitle(material.title || "Preview");
+    setIsVideoPreview(false);
+    setPreviewOpen(true);
+  } catch (err) {
+    console.error(err);
+    showSnackbar("Preview failed", "error");
+  }
+};
+
+
+const handleClosePreview = () => {
+  setPreviewOpen(false);
+  setPreviewUrl(null);
+};
+
 
   const filteredMaterials = materials.filter((m) => {
     if (category === "Videos") return !!m.video_url;
