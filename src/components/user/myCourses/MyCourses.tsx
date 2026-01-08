@@ -280,6 +280,7 @@ const handlePreview = async (material) => {
         : `${API_BASE}/api/term-tests/preview/${material.id}`;
 
     const res = await axiosInstance.get(endpoint);
+    console.log(res.data)
     const signedUrl = res.data?.url?.trim(); // full R2 signed URL
 
     if (!signedUrl) throw new Error("No preview URL received");
@@ -351,22 +352,16 @@ const renderTutorialSheets = (sheets = []) => (
         <Paper key={s.id} sx={{ p: 1.5, mb: 1 }}>
           <Typography>{s.title}</Typography>
           <Stack direction="row" spacing={1}>
-            <IconButton
-              onClick={() => {
-                setPreviewUrl(`${API_BASE}/api/term-tutorial-sheets/preview/${s.id}`);
-                setPreviewOpen(true);
-              }}
-            >
+            <IconButton onClick={() => handlePreview(s)}>
               <PreviewIcon />
             </IconButton>
 
             <IconButton
               color="primary"
-              onClick={() =>
-                handleDownload(s)
-              }
+              onClick={() => handleDownload(s)}
+              disabled={downloadingId === s.id}
             >
-              <DownloadIcon />
+              {downloadingId === s.id ? <CircularProgress size={20} /> : <DownloadIcon />}
             </IconButton>
           </Stack>
         </Paper>
@@ -374,6 +369,7 @@ const renderTutorialSheets = (sheets = []) => (
     )}
   </Box>
 );
+
 
 const renderMaterials = (materials = []) => {
   if (!materials.length)
