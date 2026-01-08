@@ -252,11 +252,12 @@ const handleClosePreview = () => {
 
       <PreviewDialog
         open={previewOpen}
-        onClose={handleClosePreview}
-        previewUrl={previewUrl}
+        onClose={() => setPreviewOpen(false)}
         title={previewTitle}
-        isVideo={isVideoPreview}
+        previewUrl={previewUrl}
+        type={isVideoPreview ? "youtube" : "pdf"} // auto-switch for videos vs PDFs
       />
+
     </Paper>
   );
 }
