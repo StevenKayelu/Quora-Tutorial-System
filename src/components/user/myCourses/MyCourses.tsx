@@ -235,20 +235,25 @@ const fetchCourseStructure = async (courseId) => {
     const match = url.match(regex);
     return match ? match[1] : null;
   };
-// ====================== DOWNLOAD FUNCTION ======================
+
+  //=======DOWNLOAD FUNCTION =======//
 const handleDownload = async (material) => {
   try {
     setDownloadingId(material.id);
 
-    // Determine the endpoint based on type
-    const url =
+    // Determine endpoint based on material category
+    const endpoint =
       material.test_type
         ? `${API_BASE}/api/term-tests/download/${material.id}`
         : material.tutorial_sheet
         ? `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`
-        : `${API_BASE}/api/topic-materials/download/${material.id}`;
+        : material.material_type === "note"
+        ? `${API_BASE}/api/topic-materials/download/${material.id}`
+        : null;
 
-    const res = await axiosInstance.get(url);
+    if (!endpoint) throw new Error("Unknown material type");
+
+    const res = await axiosInstance.get(endpoint);
     const signedUrl = res.data?.url;
 
     if (!signedUrl) throw new Error("No download URL received");
@@ -260,18 +265,29 @@ const handleDownload = async (material) => {
     a.click();
     a.remove();
 
-    showSnack(`Downloading "${material.title}"`, "success");
+    showSnack("success", `"${material.title}" is downloading`);
   } catch (err) {
     console.error(err);
-    showSnack("Download failed", "error");
+    showSnack("error", "Download failed");
   } finally {
     setDownloadingId(null);
   }
 };
 
+
 // ====================== PREVIEW FUNCTION ======================
 const handlePreview = async (material) => {
   try {
+    // If it's a video, just open YouTube
+    if (material.material_type === "video" && material.video_url) {
+      const ytId = getYouTubeId(material.video_url);
+      if (!ytId) throw new Error("Invalid YouTube URL");
+      const youtubeUrl = `https://www.youtube.com/watch?v=${ytId}`;
+      window.open(youtubeUrl, "_blank");
+      return;
+    }
+
+    // For notes / PDFs / tutorial sheets / tests
     const endpoint =
       material.material_type === "note"
         ? `${API_BASE}/api/topic-materials/preview/${material.id}`
@@ -280,20 +296,19 @@ const handlePreview = async (material) => {
         : `${API_BASE}/api/term-tests/preview/${material.id}`;
 
     const res = await axiosInstance.get(endpoint);
-    console.log(res.data)
     const signedUrl = res.data?.url?.trim(); // full R2 signed URL
 
     if (!signedUrl) throw new Error("No preview URL received");
 
     setPreviewUrl(signedUrl);
     setPreviewTitle(material.title || "Preview");
-    setIsVideoPreview(false);
     setPreviewOpen(true);
   } catch (err) {
     console.error(err);
     showSnack("error", "Preview failed");
   }
 };
+
 
 const renderTermTests = (tests = []) => (
   <Box sx={{ mt: 2 }}>
@@ -406,14 +421,10 @@ const renderMaterials = (materials = []) => {
         {/* NOTE (PDF) */}
         {m.material_type === "note" && m.file_url && (
           <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-            <IconButton
-              onClick={() => {
-                setPreviewUrl(`${API_BASE}/api/topic-materials/preview/${m.id}`);
-                setPreviewOpen(true);
-              }}
-            >
-              <PreviewIcon />
-            </IconButton>
+            <IconButton onClick={() => handlePreview(m)}>
+            <PreviewIcon />
+          </IconButton>
+
 <IconButton
   color="primary"
   onClick={() => handleDownload(m)}
