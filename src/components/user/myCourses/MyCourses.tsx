@@ -271,33 +271,14 @@ const handleDownload = async (material) => {
 
 // ====================== PREVIEW FUNCTION ======================
 const handlePreview = async (material) => {
-  // Check if it's a YouTube video
-  if (material.video_url) {
-    const videoId = material.video_url.match(
-      /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
-    )?.[1];
-
-    if (videoId) {
-      setPreviewUrl(`https://www.youtube.com/embed/${videoId}`);
-      setIsVideoPreview(true);
-      setPreviewTitle(material.title || "Preview");
-      setPreviewOpen(true);
-      return;
-    }
-  }
 
   try {
-    // Determine the preview URL based on type
-    const url =
-      material.test_type
-        ? `${API_BASE}/api/term-tests/preview/${material.id}`
-        : material.tutorial_sheet
-        ? `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`
-        : `${API_BASE}/api/topic-materials/preview/${material.id}`;
+    // Use the backend preview endpoint
+    const res = await axiosInstance.get(
+      `${API_BASE}/api/topic-materials/preview/${material.id}`
+    );
 
-    const res = await axiosInstance.get(url);
-    const signedUrl = res.data?.url;
-
+    const signedUrl = res.data?.url?.trim(); // trim to remove any whitespace/newline
     if (!signedUrl) throw new Error("No preview URL received");
 
     setPreviewUrl(signedUrl);
@@ -306,9 +287,10 @@ const handlePreview = async (material) => {
     setPreviewOpen(true);
   } catch (err) {
     console.error(err);
-    showSnack("Preview failed", "error");
+    showSnack("error", "Preview failed");
   }
 };
+
 
 
 
