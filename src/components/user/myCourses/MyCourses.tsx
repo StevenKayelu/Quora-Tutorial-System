@@ -241,21 +241,19 @@ const handleDownload = async (material) => {
   try {
     setDownloadingId(material.id);
 
-    let endpoint = null;
-
+    let endpoint;
     if (material.test_type) {
       endpoint = `${API_BASE}/api/term-tests/download/${material.id}`;
-    } else if (material.material_type === "tutorial_sheet" || material.tutorial_sheet) {
-      endpoint = `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`;
     } else if (material.material_type === "note") {
       endpoint = `${API_BASE}/api/topic-materials/download/${material.id}`;
+    } else if (material.material_type === "tutorial_sheet" || material.tutorial_sheet) {
+      endpoint = `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`;
+    } else {
+      throw new Error("Unknown material type");
     }
-
-    if (!endpoint) throw new Error("Unknown material type");
 
     const res = await axiosInstance.get(endpoint);
     const signedUrl = res.data?.url;
-
     if (!signedUrl) throw new Error("No download URL received");
 
     const a = document.createElement("a");
@@ -274,30 +272,27 @@ const handleDownload = async (material) => {
   }
 };
 
-
-// ====================== PREVIEW FUNCTION ======================
 const handlePreview = async (material) => {
   try {
-    // If it's a video, just open YouTube
-    if (material.material_type === "video" && material.video_url) {
+    let endpoint;
+
+    if (material.test_type) {
+      endpoint = `${API_BASE}/api/term-tests/preview/${material.id}`;
+    } else if (material.material_type === "note") {
+      endpoint = `${API_BASE}/api/topic-materials/preview/${material.id}`;
+    } else if (material.material_type === "tutorial_sheet" || material.tutorial_sheet) {
+      endpoint = `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`;
+    } else if (material.material_type === "video") {
       const ytId = getYouTubeId(material.video_url);
       if (!ytId) throw new Error("Invalid YouTube URL");
-      const youtubeUrl = `https://www.youtube.com/watch?v=${ytId}`;
-      window.open(youtubeUrl, "_blank");
+      window.open(`https://www.youtube.com/watch?v=${ytId}`, "_blank");
       return;
+    } else {
+      throw new Error("Unknown material type");
     }
 
-    // For notes / PDFs / tutorial sheets / tests
-    const endpoint =
-      material.material_type === "note"
-        ? `${API_BASE}/api/topic-materials/preview/${material.id}`
-        : material.tutorial_sheet
-        ? `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`
-        : `${API_BASE}/api/term-tests/preview/${material.id}`;
-
     const res = await axiosInstance.get(endpoint);
-    const signedUrl = res.data?.url?.trim(); // full R2 signed URL
-
+    const signedUrl = res.data?.url?.trim();
     if (!signedUrl) throw new Error("No preview URL received");
 
     setPreviewUrl(signedUrl);
@@ -308,7 +303,6 @@ const handlePreview = async (material) => {
     showSnack("error", "Preview failed");
   }
 };
-
 
 const renderTermTests = (tests = []) => (
   <Box sx={{ mt: 2 }}>
