@@ -99,7 +99,18 @@ const [confirmLoading, setConfirmLoading] = useState(false);
     loadCourses();
   }, []);
 
-
+const getTestTypeForTerm = (termNumber: number) => {
+  switch (termNumber) {
+    case 1:
+      return "test1";
+    case 2:
+      return "test2";
+    case 3:
+      return "sessional";
+    default:
+      return "test1";
+  }
+};
   // ---------------- CLEAR CONTENT ON TERM CHANGE ----------------
 useEffect(() => {
   if (!selectedCourse) {
@@ -128,9 +139,27 @@ useEffect(() => {
   loadTerms();
 }, [selectedCourse]);
 useEffect(() => {
+  if (selectedCategory !== "Test Papers") return;
+  if (!selectedTerm) return;
+
+  const term = courseTerms.find(t => t.id === selectedTerm);
+  if (!term) return;
+
+  const derivedType = getTestTypeForTerm(term.term_number);
+  setTestPaperType(derivedType);
+
+}, [selectedTerm, selectedCategory, courseTerms]);
+
+useEffect(() => {
   if (!selectedCourse || !selectedTerm) return;
   loadTermContent();
-}, [selectedCourse, selectedTerm, selectedCategory, courseTerms]);
+}, [
+  selectedCourse,
+  selectedTerm,
+  selectedCategory,
+  courseTerms,
+  testPaperType // 🔥 REQUIRED
+]);
 
 
 const loadTermContent = async () => {
@@ -222,20 +251,6 @@ const handleEditSubtopic = (subtopic: any) => {
   setEditingSubtopic(subtopic);
   setOpenSubtopicModal(true);
 };
-
-const getTestTypeForTerm = (termNumber: number) => {
-  switch (termNumber) {
-    case 1:
-      return "test1";
-    case 2:
-      return "test2";
-    case 3:
-      return "sessional";
-    default:
-      return "test1";
-  }
-};
-
 
   const handleAddClick = () => {
   if (selectedCategory === "Notes" || selectedCategory === "Videos") {
