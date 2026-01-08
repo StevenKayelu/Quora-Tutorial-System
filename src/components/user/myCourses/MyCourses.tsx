@@ -271,14 +271,17 @@ const handleDownload = async (material) => {
 
 // ====================== PREVIEW FUNCTION ======================
 const handlePreview = async (material) => {
-
   try {
-    // Use the backend preview endpoint
-    const res = await axiosInstance.get(
-      `${API_BASE}/api/topic-materials/preview/${material.id}`
-    );
+    const endpoint =
+      material.material_type === "note"
+        ? `${API_BASE}/api/topic-materials/preview/${material.id}`
+        : material.tutorial_sheet
+        ? `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`
+        : `${API_BASE}/api/term-tests/preview/${material.id}`;
 
-    const signedUrl = res.data?.url?.trim(); // trim to remove any whitespace/newline
+    const res = await axiosInstance.get(endpoint);
+    const signedUrl = res.data?.url?.trim(); // full R2 signed URL
+
     if (!signedUrl) throw new Error("No preview URL received");
 
     setPreviewUrl(signedUrl);
@@ -290,10 +293,6 @@ const handlePreview = async (material) => {
     showSnack("error", "Preview failed");
   }
 };
-
-
-
-
 
 const renderTermTests = (tests = []) => (
   <Box sx={{ mt: 2 }}>
