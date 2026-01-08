@@ -262,13 +262,13 @@ const handleClosePreview = () => {
           ))}
         </Box>
 
-        <PreviewDialog
-          open={previewOpen}
-          onClose={() => setPreviewOpen(false)}
-          previewUrl={previewUrl}
-          title={previewTitle}
-          isVideo={isVideoPreview}
-        />
+              <PreviewDialog
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                title={previewTitle}
+                previewUrl={previewUrl}
+                type={isVideoPreview ? "youtube" : "pdf"} // auto-switch for videos vs PDFs
+              />
       </>
     );
   }
@@ -318,12 +318,13 @@ const handleClosePreview = () => {
         })}
       </Box>
 
-      <PreviewDialog
+      
+       <PreviewDialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        previewUrl={previewUrl}
         title={previewTitle}
-        isVideo={isVideoPreview}
+        previewUrl={previewUrl}
+        type={isVideoPreview ? "youtube" : "pdf"} // auto-switch for videos vs PDFs
       />
 
       <Snackbar
