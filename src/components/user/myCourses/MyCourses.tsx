@@ -241,15 +241,15 @@ const handleDownload = async (material) => {
   try {
     setDownloadingId(material.id);
 
-    // Determine endpoint based on material category
-    const endpoint =
-      material.test_type
-        ? `${API_BASE}/api/term-tests/download/${material.id}`
-        : material.tutorial_sheet
-        ? `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`
-        : material.material_type === "note"
-        ? `${API_BASE}/api/topic-materials/download/${material.id}`
-        : null;
+    let endpoint = null;
+
+    if (material.test_type) {
+      endpoint = `${API_BASE}/api/term-tests/download/${material.id}`;
+    } else if (material.material_type === "tutorial_sheet" || material.tutorial_sheet) {
+      endpoint = `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`;
+    } else if (material.material_type === "note") {
+      endpoint = `${API_BASE}/api/topic-materials/download/${material.id}`;
+    }
 
     if (!endpoint) throw new Error("Unknown material type");
 
