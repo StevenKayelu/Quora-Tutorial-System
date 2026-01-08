@@ -252,6 +252,15 @@ const handleEditSubtopic = (subtopic: any) => {
   setEditingSubtopic(subtopic);
   setOpenSubtopicModal(true);
 };
+useEffect(() => {
+  if (selectedCategory !== "Test Papers" || !selectedTerm) return;
+
+  const term = courseTerms.find(t => t.id === selectedTerm);
+  if (term) {
+    setTestPaperType(getTestTypeForTerm(term.term_number));
+  }
+}, [selectedTerm, selectedCategory, courseTerms]);
+
 
 const getTestTypeForTerm = (termNumber: number) => {
   switch (termNumber) {
@@ -262,7 +271,7 @@ const getTestTypeForTerm = (termNumber: number) => {
     case 3:
       return "sessional";
     default:
-      return "all";
+      return "test1";
   }
 };
 
