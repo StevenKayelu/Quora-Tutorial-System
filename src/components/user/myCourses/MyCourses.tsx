@@ -52,6 +52,10 @@ export default function MyCourses() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [snack, setSnack] = useState({ open: false, severity: "info", message: "" });
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState("");
+  const [isVideoPreview, setIsVideoPreview] = useState(false);
+
 
   const location = useLocation();
   const today = new Date();
@@ -231,23 +235,81 @@ const fetchCourseStructure = async (courseId) => {
     const match = url.match(regex);
     return match ? match[1] : null;
   };
-const handleDownload = async (url, filename) => {
+// ====================== DOWNLOAD FUNCTION ======================
+const handleDownload = async (material) => {
   try {
-    const res = await axiosInstance.get(url, {
-      responseType: "blob",
-    });
+    setDownloadingId(material.id);
 
-    const blob = new Blob([res.data]);
-    const link = document.createElement("a");
-    link.href = window.URL.createObjectURL(blob);
-    link.download = `${filename}.pdf`;
-    link.click();
-    window.URL.revokeObjectURL(link.href);
-  } catch (err: any) {
+    // Determine the endpoint based on type
+    const url =
+      material.test_type
+        ? `${API_BASE}/api/term-tests/download/${material.id}`
+        : material.tutorial_sheet
+        ? `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`
+        : `${API_BASE}/api/topic-materials/download/${material.id}`;
+
+    const res = await axiosInstance.get(url);
+    const signedUrl = res.data?.url;
+
+    if (!signedUrl) throw new Error("No download URL received");
+
+    const a = document.createElement("a");
+    a.href = signedUrl;
+    a.download = material.title || "file";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    showSnack(`Downloading "${material.title}"`, "success");
+  } catch (err) {
     console.error(err);
-    showSnack("error", "Download failed");
+    showSnack("Download failed", "error");
+  } finally {
+    setDownloadingId(null);
   }
 };
+
+// ====================== PREVIEW FUNCTION ======================
+const handlePreview = async (material) => {
+  // Check if it's a YouTube video
+  if (material.video_url) {
+    const videoId = material.video_url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    )?.[1];
+
+    if (videoId) {
+      setPreviewUrl(`https://www.youtube.com/embed/${videoId}`);
+      setIsVideoPreview(true);
+      setPreviewTitle(material.title || "Preview");
+      setPreviewOpen(true);
+      return;
+    }
+  }
+
+  try {
+    // Determine the preview URL based on type
+    const url =
+      material.test_type
+        ? `${API_BASE}/api/term-tests/preview/${material.id}`
+        : material.tutorial_sheet
+        ? `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`
+        : `${API_BASE}/api/topic-materials/preview/${material.id}`;
+
+    const res = await axiosInstance.get(url);
+    const signedUrl = res.data?.url;
+
+    if (!signedUrl) throw new Error("No preview URL received");
+
+    setPreviewUrl(signedUrl);
+    setPreviewTitle(material.title || "Preview");
+    setIsVideoPreview(false);
+    setPreviewOpen(true);
+  } catch (err) {
+    console.error(err);
+    showSnack("Preview failed", "error");
+  }
+};
+
 
 
 
@@ -265,22 +327,14 @@ const renderTermTests = (tests = []) => (
         <Paper key={t.id} sx={{ p: 1.5, mb: 1 }}>
           <Typography>{t.title}</Typography>
           <Stack direction="row" spacing={1}>
-            <IconButton
-              onClick={() => {
-                setPreviewUrl(`${API_BASE}/api/term-tests/preview/${t.id}`);
-                setPreviewOpen(true);
-              }}
-            >
-              <PreviewIcon />
-            </IconButton>
+            <IconButton onClick={() => handlePreview(t)}>
+  <PreviewIcon />
+</IconButton>
 
             <IconButton
               color="primary"
               onClick={() =>
-               handleDownload(
-                `${API_BASE}/api/term-tests/download/${t.id}`,
-                t.title
-                )
+               handleDownload(t)
               }
             >
               <DownloadIcon />
@@ -328,10 +382,7 @@ const renderTutorialSheets = (sheets = []) => (
             <IconButton
               color="primary"
               onClick={() =>
-                handleDownload(
-                `${API_BASE}/api/term-tutorial-sheets/download/${s.id}`,
-                s.title
-                )
+                handleDownload(s)
               }
             >
               <DownloadIcon />
@@ -386,18 +437,14 @@ const renderMaterials = (materials = []) => {
             >
               <PreviewIcon />
             </IconButton>
+<IconButton
+  color="primary"
+  onClick={() => handleDownload(m)}
+  disabled={downloadingId === m.id}
+>
+  {downloadingId === m.id ? <CircularProgress size={20} /> : <DownloadIcon />}
+</IconButton>
 
-            <IconButton
-              color="primary"
-              onClick={() =>
-                handleDownload(
-                `${API_BASE}/api/topic-materials/download/${m.id}`,
-                m.title
-                )
-              }
-            >
-              <DownloadIcon />
-            </IconButton>
           </Stack>
         )}
       </Paper>
