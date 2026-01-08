@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Paper,
@@ -127,46 +127,10 @@ useEffect(() => {
 
   loadTerms();
 }, [selectedCourse]);
-
-
-  // ---------------- LOAD CONTENT (COURSE / TERM / CATEGORY) ----------------
-  useEffect(() => {
-    if (!selectedCourse || !selectedTerm) return;
-    loadTermContent();
-  }, [selectedCourse, selectedTerm, selectedCategory,testPaperType]);
-
-const loadTestPapers = async () => {
-  setLoading(true);
-  try {
-    const res = await axiosInstance.get(
-      `${API_BASE}/api/term-tests/course/${selectedCourse}/term/${selectedTerm}`
-    );
-    let filteredMaterials = res.data.data || [];
-
-    setMaterials(filteredMaterials);
-  } catch (err) {
-    console.error(err);
-    showSnack("error", "Failed to load test papers");
-  } finally {
-    setLoading(false);
-  }
-};
-// Auto-set testPaperType when selectedTerm changes
-useEffect(() => {
-  if (selectedCategory !== "Test Papers" || !selectedTerm) return;
-
-  const term = courseTerms.find(t => t.id === selectedTerm);
-  if (term) {
-    const type = getTestTypeForTerm(term.term_number);
-    setTestPaperType(type);
-  }
-}, [selectedTerm, selectedCategory, courseTerms]);
-
-// Load content AFTER testPaperType changes
 useEffect(() => {
   if (!selectedCourse || !selectedTerm) return;
   loadTermContent();
-}, [selectedCourse, selectedTerm, selectedCategory, testPaperType]);
+}, [selectedCourse, selectedTerm, selectedCategory, courseTerms]);
 
 
 const loadTermContent = async () => {
