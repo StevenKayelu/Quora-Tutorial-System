@@ -685,10 +685,11 @@ const renderMaterials = (materials = []) => {
         <DialogTitle>Preview</DialogTitle>
         <DialogContent sx={{ height: "70vh" }}>
             <iframe
-                src={previewUrl}
-                style={{ width: "100%", height: "100%", border: "none" }}
-                title="Preview"
-                />
+              src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              title="Preview"
+            />
+
 
         </DialogContent>
         <DialogActions>
