@@ -133,40 +133,27 @@ export default function TopicsList({
 const handleDownload = async (material: any) => {
   try {
     setDownloadingId(material.id);
-    
+
     const url = getDownloadUrl(material);
     if (!url) throw new Error("Download not supported");
 
-    const response = await axiosInstance.get(url, {
-      responseType: "blob",
-    });
+    const res = await axiosInstance.get(url); // JSON response
+    const signedUrl = res.data?.url;
 
-    // Check if backend returned JSON error instead of PDF
-    if (response.headers["content-type"]?.includes("application/json")) {
-      throw new Error("Server returned an error instead of a file");
-    }
+    if (!signedUrl) throw new Error("No download URL");
 
-    const blob = new Blob([response.data], { type: "application/pdf" });
-    const contentDisposition = response.headers["content-disposition"];
-    let filename = material.title || "download.pdf";
-    
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?(.+?)"?$/);
-      if (match) filename = match[1];
-    }
+    // Trigger browser download
+    const a = document.createElement("a");
+    a.href = signedUrl;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
 
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(link.href);
-
-    showSnackbar(`Downloaded "${filename}"`);
-  } catch (error) {
-    console.error("Download error:", error);
-    showSnackbar("Download failed. Please try again.", "error");
+    showSnackbar(`Downloading "${material.title}"`);
+  } catch (err) {
+    console.error(err);
+    showSnackbar("Download failed", "error");
   } finally {
     setDownloadingId(null);
   }
@@ -174,8 +161,6 @@ const handleDownload = async (material: any) => {
 
 /* ---------------- PREVIEW ---------------- */
 const handlePreview = async (material: any) => {
-  if (!material?.id) return;
-
   const { url, video } = getPreviewUrl(material);
 
   if (video) {
@@ -187,25 +172,21 @@ const handlePreview = async (material: any) => {
   }
 
   try {
-    // Fetch blob via axios to include Auth headers
-    const res = await axiosInstance.get(url, {
-      responseType: "blob",
-    });
+    const res = await axiosInstance.get(url); // JSON
+    const signedUrl = res.data?.url;
 
-    if (res.headers["content-type"]?.includes("application/json")) {
-      throw new Error("Invalid file format");
-    }
+    if (!signedUrl) throw new Error("No preview URL");
 
-    const blobUrl = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
-    setPreviewUrl(blobUrl);
+    setPreviewUrl(signedUrl);
     setPreviewTitle(material.title || "Preview");
     setIsVideoPreview(false);
     setPreviewOpen(true);
   } catch (err) {
-    console.error("Preview failed:", err);
+    console.error(err);
     showSnackbar("Could not load preview", "error");
   }
 };
+
 
 const handleClosePreview = () => {
   if (previewUrl && !isVideoPreview) {
