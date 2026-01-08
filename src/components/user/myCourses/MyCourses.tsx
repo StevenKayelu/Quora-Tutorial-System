@@ -242,11 +242,13 @@ const handleDownload = async (material) => {
     setDownloadingId(material.id);
 
     let endpoint;
+
     if (material.test_type) {
       endpoint = `${API_BASE}/api/term-tests/download/${material.id}`;
     } else if (material.material_type === "note") {
       endpoint = `${API_BASE}/api/topic-materials/download/${material.id}`;
-    } else if (material.material_type === "tutorial_sheet" || material.tutorial_sheet) {
+    } else if (material.id && !material.material_type && !material.test_type) {
+      // ✅ tutorial sheet fallback
       endpoint = `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`;
     } else {
       throw new Error("Unknown material type");
@@ -272,6 +274,7 @@ const handleDownload = async (material) => {
   }
 };
 
+
 const handlePreview = async (material) => {
   try {
     let endpoint;
@@ -280,13 +283,9 @@ const handlePreview = async (material) => {
       endpoint = `${API_BASE}/api/term-tests/preview/${material.id}`;
     } else if (material.material_type === "note") {
       endpoint = `${API_BASE}/api/topic-materials/preview/${material.id}`;
-    } else if (material.material_type === "tutorial_sheet" || material.tutorial_sheet) {
+    } else if (material.id && !material.material_type && !material.test_type) {
+      // ✅ tutorial sheet fallback
       endpoint = `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`;
-    } else if (material.material_type === "video") {
-      const ytId = getYouTubeId(material.video_url);
-      if (!ytId) throw new Error("Invalid YouTube URL");
-      window.open(`https://www.youtube.com/watch?v=${ytId}`, "_blank");
-      return;
     } else {
       throw new Error("Unknown material type");
     }
@@ -303,6 +302,7 @@ const handlePreview = async (material) => {
     showSnack("error", "Preview failed");
   }
 };
+
 
 const renderTermTests = (tests = []) => (
   <Box sx={{ mt: 2 }}>
