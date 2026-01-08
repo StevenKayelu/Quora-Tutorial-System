@@ -11,8 +11,8 @@ interface PreviewDialogProps {
   open: boolean;
   onClose: () => void;
   title?: string;
-  previewUrl?: string;
-  isVideo?: boolean;
+  previewUrl?: string; // YouTube link, PDF link, or image URL
+  type?: "youtube" | "pdf" | "image";
 }
 
 export default function PreviewDialog({
@@ -20,17 +20,57 @@ export default function PreviewDialog({
   onClose,
   title,
   previewUrl,
-  isVideo,
+  type = "pdf",
 }: PreviewDialogProps) {
   if (!previewUrl) return null;
 
+  const renderContent = () => {
+    switch (type) {
+      case "youtube":
+        // Convert a normal YouTube URL to embed URL
+        let embedUrl = previewUrl;
+        if (previewUrl.includes("watch?v=")) {
+          embedUrl = previewUrl.replace("watch?v=", "embed/");
+        }
+        return (
+          <iframe
+            src={embedUrl}
+            title="YouTube Preview"
+            width="100%"
+            height="100%"
+            style={{ border: "none" }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        );
+
+      case "image":
+        return (
+          <img
+            src={previewUrl}
+            alt="Preview"
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        );
+
+      case "pdf":
+      default:
+        // Use Google Docs viewer for PDFs
+        return (
+          <iframe
+            src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+            title="PDF Preview"
+            width="100%"
+            height="100%"
+            style={{ border: "none" }}
+          />
+        );
+
+    }
+  };
+
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      fullWidth
-      maxWidth="lg"
-    >
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle sx={{ display: "flex", justifyContent: "space-between" }}>
         {title || "Preview"}
         <IconButton onClick={onClose}>
@@ -45,19 +85,7 @@ export default function PreviewDialog({
             height: { xs: "60vh", md: "75vh" },
           }}
         >
-          <iframe
-            src={previewUrl}
-            title="Preview"
-            width="100%"
-            height="100%"
-            style={{ border: "none" }}
-            allow={
-              isVideo
-                ? "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                : undefined
-            }
-            allowFullScreen={isVideo}
-          />
+          {renderContent()}
         </Box>
       </DialogContent>
     </Dialog>
