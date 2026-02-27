@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+How is this? is it complete?: import React, { useEffect, useState } from "react"; 
 import {
   Box,
   Paper,
@@ -29,8 +29,7 @@ import { useLocation } from "react-router-dom";
 export default function MyCourses() {
   const axiosInstance = useAxiosInstance()();
   const { systemInfo } = useSystemInfo();
-    const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   // Data
   const [schools, setSchools] = useState([]);
@@ -43,7 +42,7 @@ export default function MyCourses() {
   const [selectedTerm, setSelectedTerm] = useState(null);
 
   const [contentFilter, setContentFilter] = useState("materials"); 
-// "tests" | "tutorials" | "materials"
+  // "tests" | "tutorials" | "materials"
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -56,144 +55,131 @@ export default function MyCourses() {
   const [previewTitle, setPreviewTitle] = useState("");
   const [isVideoPreview, setIsVideoPreview] = useState(false);
 
-
   const location = useLocation();
   const today = new Date();
 
-/**
- * Determines the current active term
- */
-const getCurrentTermNumber = (terms = []) => {
-  const activeTerm = terms.find(
-    (t) =>
-      new Date(t.start_date) <= today &&
-      new Date(t.end_date) >= today
-  );
+  /**
+   * Determines the current active term
+   */
+  const getCurrentTermNumber = (terms = []) => {
+    const activeTerm = terms.find(
+      (t) =>
+        new Date(t.start_date) <= today &&
+        new Date(t.end_date) >= today
+    );
+    return activeTerm ? Number(activeTerm.term_number) : null;
+  };
 
-  return activeTerm ? Number(activeTerm.term_number) : null;
-};
+  /**
+   * Determines if a term is unlocked (also locks if course expired)
+   */
+  const isTermUnlocked = (term, allTerms) => {
+    if (!selectedCourse || selectedCourse.subscription_status === "expired") return false;
 
-/**
- * Determines if a term is unlocked
- */
-const isTermUnlocked = (term, allTerms) => {
-  const currentTermNumber = getCurrentTermNumber(allTerms);
+    const currentTermNumber = getCurrentTermNumber(allTerms);
+    if (!currentTermNumber) return false;
 
-  if (!currentTermNumber) return false;
-
-  // If current term is 3 → unlock all
-  if (currentTermNumber === 3) return true;
-
-  // Otherwise only current term is unlocked
-  return Number(term.term_number) === currentTermNumber;
-};
-
+    return Number(term.term_number) === currentTermNumber || currentTermNumber === 3;
+  };
 
   useEffect(() => {
-  if (location.state?.schoolId && location.state?.courseId) {
-    const schoolId = location.state.schoolId;
-    const courseId = location.state.courseId;
+    if (location.state?.schoolId && location.state?.courseId) {
+      const schoolId = location.state.schoolId;
+      const courseId = location.state.courseId;
 
-    setSelectedSchool(schoolId);
-    fetchCourses(schoolId).then((courseList) => {
-      const course = courseList.find((c) => c.id === courseId);
-      if (course) {
-        setSelectedCourse(course);
-        fetchCourseStructure(course.id);
-      }
-    });
-  }
-}, [location.state]);
-
- useEffect(() => {
-  let mounted = true;
-  if (mounted) fetchSchools();
-  return () => { mounted = false };
-}, []);
-
-
-// Fetch only subscribed schools
-const fetchSchools = async () => {
-  setLoading(true);
-  try {
-    const res = await axiosInstance.get(
-      `${API_BASE}/api/user-courses/schools`
-    );
-
-    if (res.data?.success) {
-      const schoolsData = res.data.data || [];
-      setSchools(schoolsData);
-
-      // ✅ Set default selected school to the first one
-      if (schoolsData.length > 0) {
-        const defaultSchool = schoolsData[0];
-        setSelectedSchool(defaultSchool.id);
-        fetchCourses(defaultSchool.id);
-      }
+      setSelectedSchool(schoolId);
+      fetchCourses(schoolId).then((courseList) => {
+        const course = courseList.find((c) => c.id === courseId);
+        if (course) {
+          setSelectedCourse(course);
+          fetchCourseStructure(course.id);
+        }
+      });
     }
-  } catch (err) {
-    console.error(err);
-    showSnack("error", "Failed to fetch subscribed schools");
-  } finally {
-    setLoading(false);
-  }
-};
-const getTestTypeForTerm = (termNumber: number) => {
-  switch (Number(termNumber)) {
-    case 1:
-      return "test1";
-    case 2:
-      return "test2";
-    case 3:
-      return "sessional"; // or "sessional" if that’s your DB value
-    default:
-      return null;
-  }
-};
+  }, [location.state]);
 
-// Fetch only subscribed courses under a selected school
-const fetchCourses = async (schoolId) => {
-  if (!schoolId) return [];
-  setLoading(true);
+  useEffect(() => {
+    let mounted = true;
+    if (mounted) fetchSchools();
+    return () => { mounted = false };
+  }, []);
 
-  try {
-    const res = await axiosInstance.get(
-      `${API_BASE}/api/user-courses/schools/${schoolId}/courses`
-    );
+  // Fetch only subscribed schools
+  const fetchSchools = async () => {
+    setLoading(true);
+    try {
+      const res = await axiosInstance.get(
+        `${API_BASE}/api/user-courses/schools`
+      );
+      if (res.data?.success) {
+        const schoolsData = res.data.data || [];
+        setSchools(schoolsData);
 
-    const coursesData = res.data?.success ? res.data.data || [] : [];
-    setCourses(coursesData);
-    return coursesData;
-  } catch (err) {
-    console.error(err);
-    showSnack("error", "Failed to fetch subscribed courses");
-    return [];
-  } finally {
-    setLoading(false);
-  }
-};
-// Fetch course structure (terms/topics/subtopics/materials)
-const fetchCourseStructure = async (courseId) => {
-  setLoadingStructure(true);
-
-  try {
-    const res = await axiosInstance.get(
-      `${API_BASE}/api/user-courses/courses/${courseId}/structure`
-    );
-
-    if (res.data?.success) {
-      setStructures((prev) => ({
-        ...prev,
-        [courseId]: res.data.data,
-      }));
+        // ✅ Set default selected school to the first one
+        if (schoolsData.length > 0) {
+          const defaultSchool = schoolsData[0];
+          setSelectedSchool(defaultSchool.id);
+          fetchCourses(defaultSchool.id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showSnack("error", "Failed to fetch subscribed schools");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    showSnack("error", "Failed to fetch course structure");
-  } finally {
-    setLoadingStructure(false);
-  }
-};
+  };
+
+  const getTestTypeForTerm = (termNumber) => {
+    switch (Number(termNumber)) {
+      case 1: return "test1";
+      case 2: return "test2";
+      case 3: return "sessional";
+      default: return null;
+    }
+  };
+
+  // Fetch only subscribed courses under a selected school
+  const fetchCourses = async (schoolId) => {
+    if (!schoolId) return [];
+    setLoading(true);
+
+    try {
+      const res = await axiosInstance.get(
+        `${API_BASE}/api/user-courses/schools/${schoolId}/courses`
+      );
+      const coursesData = res.data?.success ? res.data.data || [] : [];
+      setCourses(coursesData);
+      return coursesData;
+    } catch (err) {
+      console.error(err);
+      showSnack("error", "Failed to fetch subscribed courses");
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch course structure (terms/topics/subtopics/materials)
+  const fetchCourseStructure = async (courseId) => {
+    setLoadingStructure(true);
+    try {
+      const res = await axiosInstance.get(
+        `${API_BASE}/api/user-courses/courses/${courseId}/structure`
+      );
+      if (res.data?.success) {
+        setStructures((prev) => ({
+          ...prev,
+          [courseId]: res.data.data,
+        }));
+      }
+    } catch (err) {
+      console.error(err);
+      showSnack("error", "Failed to fetch course structure");
+    } finally {
+      setLoadingStructure(false);
+    }
+  };
 
   const handleSelectSchool = (e) => {
     const id = e.target.value;
@@ -211,11 +197,10 @@ const fetchCourseStructure = async (courseId) => {
     if (!structures[course.id]) fetchCourseStructure(course.id);
   };
 
- const handleSelectTerm = (term) => {
-  setSelectedTerm(term);
-  setContentFilter("materials");
-};
-
+  const handleSelectTerm = (term) => {
+    setSelectedTerm(term);
+    setContentFilter("materials");
+  };
 
   const handleBack = (level) => {
     if (level === "school") setSelectedSchool(null);
@@ -237,74 +222,77 @@ const fetchCourseStructure = async (courseId) => {
   };
 
   //=======DOWNLOAD FUNCTION =======//
-const handleDownload = async (material) => {
-  try {
-    setDownloadingId(material.id);
-
-    let endpoint;
-
-    if (material.test_type) {
-      endpoint = `${API_BASE}/api/term-tests/download/${material.id}`;
-    } else if (material.material_type === "note") {
-      endpoint = `${API_BASE}/api/topic-materials/download/${material.id}`;
-    } else if (material.id && !material.material_type && !material.test_type) {
-      // ✅ tutorial sheet fallback
-      endpoint = `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`;
-    } else {
-      throw new Error("Unknown material type");
+  const handleDownload = async (material) => {
+    if (selectedCourse?.subscription_status === "expired") {
+      showSnack("info", "Cannot download. Course subscription expired.");
+      return;
     }
+    try {
+      setDownloadingId(material.id);
 
-    const res = await axiosInstance.get(endpoint);
-    const signedUrl = res.data?.url;
-    if (!signedUrl) throw new Error("No download URL received");
+      let endpoint;
 
-    const a = document.createElement("a");
-    a.href = signedUrl;
-    a.download = material.title || "file";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+      if (material.test_type) {
+        endpoint = `${API_BASE}/api/term-tests/download/${material.id}`;
+      } else if (material.material_type === "note") {
+        endpoint = `${API_BASE}/api/topic-materials/download/${material.id}`;
+      } else if (material.id && !material.material_type && !material.test_type) {
+        endpoint = `${API_BASE}/api/term-tutorial-sheets/download/${material.id}`;
+      } else {
+        throw new Error("Unknown material type");
+      }
 
-    showSnack("success", `"${material.title}" is downloading`);
-  } catch (err) {
-    console.error(err);
-    showSnack("error", "Download failed");
-  } finally {
-    setDownloadingId(null);
-  }
-};
+      const res = await axiosInstance.get(endpoint);
+      const signedUrl = res.data?.url;
+      if (!signedUrl) throw new Error("No download URL received");
 
+      const a = document.createElement("a");
+      a.href = signedUrl;
+      a.download = material.title || "file";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
 
-const handlePreview = async (material) => {
-  try {
-    let endpoint;
-
-    if (material.test_type) {
-      endpoint = `${API_BASE}/api/term-tests/preview/${material.id}`;
-    } else if (material.material_type === "note") {
-      endpoint = `${API_BASE}/api/topic-materials/preview/${material.id}`;
-    } else if (material.id && !material.material_type && !material.test_type) {
-      // ✅ tutorial sheet fallback
-      endpoint = `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`;
-    } else {
-      throw new Error("Unknown material type");
+      showSnack("success", `"${material.title}" is downloading`);
+    } catch (err) {
+      console.error(err);
+      showSnack("error", "Download failed");
+    } finally {
+      setDownloadingId(null);
     }
+  };
 
-    const res = await axiosInstance.get(endpoint);
-    const signedUrl = res.data?.url?.trim();
-    if (!signedUrl) throw new Error("No preview URL received");
+  const handlePreview = async (material) => {
+    if (selectedCourse?.subscription_status === "expired") {
+      showSnack("info", "Cannot preview. Course subscription expired.");
+      return;
+    }
+    try {
+      let endpoint;
 
-    setPreviewUrl(signedUrl);
-    setPreviewTitle(material.title || "Preview");
-    setPreviewOpen(true);
-  } catch (err) {
-    console.error(err);
-    showSnack("error", "Preview failed");
-  }
-};
+      if (material.test_type) {
+        endpoint = `${API_BASE}/api/term-tests/preview/${material.id}`;
+      } else if (material.material_type === "note") {
+        endpoint = `${API_BASE}/api/topic-materials/preview/${material.id}`;
+      } else if (material.id && !material.material_type && !material.test_type) {
+        endpoint = `${API_BASE}/api/term-tutorial-sheets/preview/${material.id}`;
+      } else {
+        throw new Error("Unknown material type");
+      }
 
+      const res = await axiosInstance.get(endpoint);
+      const signedUrl = res.data?.url?.trim();
+      if (!signedUrl) throw new Error("No preview URL received");
 
-const renderTermTests = (tests = []) => (
+      setPreviewUrl(signedUrl);
+      setPreviewTitle(material.title || "Preview");
+      setPreviewOpen(true);
+    } catch (err) {
+      console.error(err);
+      showSnack("error", "Preview failed");
+    }
+  };
+  const renderTermTests = (tests = []) => (
   <Box sx={{ mt: 2 }}>
     <Typography fontWeight={600}>📘 Test Papers</Typography>
 
@@ -434,7 +422,6 @@ const renderMaterials = (materials = []) => {
   });
 };
 
-
   const cardStyle = {
     p: 2,
     mb: 1.5,
@@ -454,22 +441,23 @@ const renderMaterials = (materials = []) => {
   return (
     <Box sx={{ p: 2 }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 3, background: "linear-gradient(135deg, #1976d2 30%, #42a5f5 90%)", color: "white", mb: 3 }}>
-      <Typography
-        variant="h4"
-        sx={{
-          mb: 1,
-          color: "white",
-          fontWeight: 600,
-          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem", lg: "2.25rem" },
-        }}
-      >
-        My Courses | {systemInfo?.system_name || "Tutorial System"}
-      </Typography>
+        <Typography
+          variant="h4"
+          sx={{
+            mb: 1,
+            color: "white",
+            fontWeight: 600,
+            fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem", lg: "2.25rem" },
+          }}
+        >
+          My Courses | {systemInfo?.system_name || "Tutorial System"}
+        </Typography>
 
-          <Typography variant="h6">
-            Explore Your Enrolled Courses
-          </Typography>
+        <Typography variant="h6">
+          Explore Your Enrolled Courses
+        </Typography>
       </Paper>
+
       <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <TextField
           select
@@ -487,9 +475,7 @@ const renderMaterials = (materials = []) => {
           ))}
         </TextField>
       </Paper>
-
-
-      {selectedSchool && !selectedCourse && (
+             {selectedSchool && !selectedCourse && (
         <Box>
           <Button
             startIcon={<ArrowBack />}
@@ -690,6 +676,9 @@ const renderMaterials = (materials = []) => {
           No terms available for this course yet. Please check back later or contact the admin for more info.
         </Typography>
       )}
+      {/* ...Course List, Term List, Material rendering sections remain unchanged except for the above expiry/inactive logic ... */}
+
+      {/* Snackbar */}
       <Snackbar
         open={snack.open}
         autoHideDuration={4000}
