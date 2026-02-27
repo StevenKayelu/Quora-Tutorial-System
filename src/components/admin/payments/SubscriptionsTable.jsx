@@ -37,7 +37,7 @@ export default function SubscriptionsTable() {
   const [groupedUsers, setGroupedUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [terms, setTerms] = useState([]);
-  const [loading, setLoading] = useState(true); // Loading spinner state
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState("");
@@ -49,7 +49,6 @@ export default function SubscriptionsTable() {
     fetchAllData();
   }, []);
 
-  // Fetch subscriptions, courses, and terms together
   async function fetchAllData() {
     setLoading(true);
     try {
@@ -65,14 +64,19 @@ export default function SubscriptionsTable() {
     const res = await axiosInstance.get(`${API_SUBSCRIPTIONS}/users`);
     const data = res.data?.data || [];
 
-    // Filter only active, non-expired subscriptions
-    const activeData = data.filter((row) => {
+    // Mark expired subscriptions
+    const allData = data.map((row) => {
       const expires = row.expires_at ? new Date(row.expires_at) : null;
-      return row.status === "active" && (!expires || expires >= new Date());
+      const now = new Date();
+      return {
+        ...row,
+        status: expires && expires < now ? "expired" : row.status
+      };
     });
 
+    // Group by user
     const grouped = Object.values(
-      activeData.reduce((acc, row) => {
+      allData.reduce((acc, row) => {
         if (!acc[row.user_id]) {
           acc[row.user_id] = {
             user_id: row.user_id,
@@ -96,6 +100,7 @@ export default function SubscriptionsTable() {
         return acc;
       }, {})
     );
+
     setGroupedUsers(grouped);
   }
 
@@ -155,13 +160,20 @@ export default function SubscriptionsTable() {
   }
 
   const columns = [
-    { field: "course_title", headerName: "Course", flex: 1, minWidth: 150 },
+    {
+      field: "course_title",
+      headerName: "Course",
+      flex: 1,
+      minWidth: 150,
+      cellClassName: (params) => (params.row.status === "expired" ? "expired-cell" : "")
+    },
     { field: "term_number", headerName: "Term", width: 120 },
     {
       field: "expires_at",
       headerName: "Expires On",
       width: 140,
-      renderCell: ({ row }) => <Typography sx={{ fontSize: 13 }}>{formatDate(row.expires_at)}</Typography>
+      renderCell: ({ row }) => <Typography sx={{ fontSize: 13 }}>{formatDate(row.expires_at)}</Typography>,
+      cellClassName: (params) => (params.row.status === "expired" ? "expired-cell" : "")
     },
     {
       field: "status",
@@ -169,9 +181,10 @@ export default function SubscriptionsTable() {
       width: 140,
       renderCell: ({ row }) => (
         <Select
-          value={row.status}
           size="small"
+          value={row.status === "expired" ? "inactive" : row.status}
           onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
+          disabled={row.status === "expired"}
         >
           <MenuItem value="active">Active</MenuItem>
           <MenuItem value="inactive">Inactive</MenuItem>
@@ -255,18 +268,23 @@ export default function SubscriptionsTable() {
                       sx={{
                         p: 1.5,
                         borderRadius: 1,
-                        bgcolor: "action.hover",
+                        bgcolor: course.status === "expired" ? "error.lighter" : "action.hover",
                         border: `1px solid ${theme.palette.divider}`
                       }}
                     >
                       <Stack direction="row" justifyContent="space-between" mb={1}>
-                        <Typography variant="body2" fontWeight="bold">
-                          {course.course_title}
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          color={course.status === "expired" ? "error.main" : "text.primary"}
+                        >
+                          {course.course_title} ({course.status})
                         </Typography>
                         <Select
                           size="small"
-                          value={course.status}
+                          value={course.status === "expired" ? "inactive" : course.status}
                           onChange={(e) => updateStatus(course.subscription_id, e.target.value)}
+                          disabled={course.status === "expired"}
                         >
                           <MenuItem value="active">Active</MenuItem>
                           <MenuItem value="inactive">Inactive</MenuItem>
@@ -297,7 +315,14 @@ export default function SubscriptionsTable() {
                   autoHeight
                   hideFooter
                   disableRowSelectionOnClick
-                  sx={{ border: "none", "& .MuiDataGrid-cell": { fontSize: 13 } }}
+                  sx={{
+                    border: "none",
+                    "& .MuiDataGrid-cell": { fontSize: 13 },
+                    "& .expired-cell": {
+                      color: theme.palette.error.main,
+                      fontWeight: "bold"
+                    }
+                  }}
                 />
               )}
             </AccordionDetails>
