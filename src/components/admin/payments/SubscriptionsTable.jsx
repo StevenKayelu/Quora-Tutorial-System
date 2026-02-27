@@ -66,9 +66,10 @@ export default function SubscriptionsTable() {
     const data = res.data?.data || [];
 
     // Filter only active, non-expired subscriptions
-    const activeData = data.filter(
-      (row) => row.status === "active" && new Date(row.expires_at) >= new Date()
-    );
+    const activeData = data.filter((row) => {
+      const expires = row.expires_at ? new Date(row.expires_at) : null;
+      return row.status === "active" && (!expires || expires >= new Date());
+    });
 
     const grouped = Object.values(
       activeData.reduce((acc, row) => {
