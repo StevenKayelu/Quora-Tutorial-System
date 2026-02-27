@@ -15,7 +15,8 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
-  Stack
+  Stack,
+  CircularProgress
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -31,11 +32,12 @@ export default function SubscriptionsTable() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const API_SUBSCRIPTIONS = `${API_BASE_URL}/api/subscriptions`;
   const API_COURSES = `${API_BASE_URL}/api/courses`;
-  const API_TERMS = `${API_BASE_URL}/api/terms`; // Added for term selection
+  const API_TERMS = `${API_BASE_URL}/api/terms`;
 
   const [groupedUsers, setGroupedUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [terms, setTerms] = useState([]);
+  const [loading, setLoading] = useState(true); // Loading spinner state
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState("");
@@ -44,17 +46,29 @@ export default function SubscriptionsTable() {
   const [subToDelete, setSubToDelete] = useState(null);
 
   useEffect(() => {
-    fetchSubscriptions();
-    fetchCourses();
-    fetchTerms();
+    fetchAllData();
   }, []);
+
+  // Fetch subscriptions, courses, and terms together
+  async function fetchAllData() {
+    setLoading(true);
+    try {
+      await Promise.all([fetchSubscriptions(), fetchCourses(), fetchTerms()]);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchSubscriptions() {
     const res = await axiosInstance.get(`${API_SUBSCRIPTIONS}/users`);
     const data = res.data?.data || [];
 
-    // Explicitly filter active & non-expired subscriptions
-    const activeData = data.filter(row => row.status === "active" && new Date(row.expires_at) >= new Date());
+    // Filter only active, non-expired subscriptions
+    const activeData = data.filter(
+      (row) => row.status === "active" && new Date(row.expires_at) >= new Date()
+    );
 
     const grouped = Object.values(
       activeData.reduce((acc, row) => {
@@ -140,144 +154,155 @@ export default function SubscriptionsTable() {
   }
 
   const columns = [
-  { field: "course_title", headerName: "Course", flex: 1, minWidth: 150 },
-  { field: "term_number", headerName: "Term", width: 120 },
-  {
-    field: "expires_at",
-    headerName: "Expires On",
-    width: 140,
-    renderCell: ({ row }) => (
-      <Typography sx={{ fontSize: 13 }}>
-        {formatDate(row.expires_at)}
-      </Typography>
-    ),
-  },
-  {
-    field: "status",
-    headerName: "Status",
-    width: 140,
-    renderCell: ({ row }) => (
-      <Select
-        value={row.status}
-        size="small"
-        onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
-      >
-        <MenuItem value="active">Active</MenuItem>
-        <MenuItem value="inactive">Inactive</MenuItem>
-      </Select>
-    ),
-  },
-  {
-    field: "subscribed_at",
-    headerName: "Subscribed On",
-    width: 150,
-    renderCell: ({ row }) => (
-      <Typography sx={{ fontSize: 13 }}>
-        {formatDate(row.subscribed_at)}
-      </Typography>
-    ),
-  },
-  {
-    field: "actions",
-    headerName: "Action",
-    width: 120,
-    sortable: false,
-    renderCell: ({ row }) => (
-      <Button
-        size="small"
-        color="error"
-        variant="outlined"
-        startIcon={<DeleteOutlineIcon />}
-        onClick={() => requestDelete(row.subscription_id)}
-      >
-        Remove
-      </Button>
-    ),
-  },
-];
+    { field: "course_title", headerName: "Course", flex: 1, minWidth: 150 },
+    { field: "term_number", headerName: "Term", width: 120 },
+    {
+      field: "expires_at",
+      headerName: "Expires On",
+      width: 140,
+      renderCell: ({ row }) => <Typography sx={{ fontSize: 13 }}>{formatDate(row.expires_at)}</Typography>
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 140,
+      renderCell: ({ row }) => (
+        <Select
+          value={row.status}
+          size="small"
+          onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
+        >
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="inactive">Inactive</MenuItem>
+        </Select>
+      )
+    },
+    {
+      field: "subscribed_at",
+      headerName: "Subscribed On",
+      width: 150,
+      renderCell: ({ row }) => <Typography sx={{ fontSize: 13 }}>{formatDate(row.subscribed_at)}</Typography>
+    },
+    {
+      field: "actions",
+      headerName: "Action",
+      width: 120,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <Button
+          size="small"
+          color="error"
+          variant="outlined"
+          startIcon={<DeleteOutlineIcon />}
+          onClick={() => requestDelete(row.subscription_id)}
+        >
+          Remove
+        </Button>
+      )
+    }
+  ];
 
   return (
     <Box sx={{ width: "100%", overflowX: "hidden" }}>
-      {groupedUsers.map((user) => (
-        <Accordion
-          key={user.user_id}
-          sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography
-                variant="subtitle2"
-                fontWeight="bold"
-                color={user.courses.length === 0 ? 'error' : 'text.primary'}
-              >
-                {user.user_name}
-              </Typography>
-              <Chip
-                label={user.courses.length}
-                size="small"
-                variant="outlined"
-                sx={{ height: 20, fontSize: 10 }}
-                color={user.courses.length === 0 ? 'error' : 'default'}
-              />
-            </Stack>
-          </AccordionSummary>
-
-          <AccordionDetails sx={{ p: isMobile ? 1.5 : 2, pt: 0 }}>
-            <Button
-              variant="contained"
-              sx={{ mb: 2, textTransform: 'none' }}
-              fullWidth
-              onClick={() => { setSelectedUser(user); setOpen(true); }}
-            >
-              Assign New Course
-            </Button>
-
-            {isMobile ? (
-              <Stack spacing={1}>
-                {user.courses.map((course) => (
-                  <Box key={course.id} sx={{ p: 1.5, borderRadius: 1, bgcolor: 'action.hover', border: `1px solid ${theme.palette.divider}` }}>
-                    <Stack direction="row" justifyContent="space-between" mb={1}>
-                      <Typography variant="body2" fontWeight="bold">{course.course_title}</Typography>
-                      <Select
-                        size="small"
-                        value={course.status}
-                        onChange={(e) => updateStatus(course.subscription_id, e.target.value)}
-                      >
-                        <MenuItem value="active">Active</MenuItem>
-                        <MenuItem value="inactive">Inactive</MenuItem>
-                      </Select>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Enrolled: {formatDate(course.subscribed_at)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
-                      Expires: {formatDate(course.expires_at)}
-                    </Typography>
-                    <Button
-                      fullWidth
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      onClick={() => requestDelete(course.subscription_id)}
-                    >
-                      Remove Subscription
-                    </Button>
-                  </Box>
-                ))}
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 200 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        groupedUsers.map((user) => (
+          <Accordion
+            key={user.user_id}
+            sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography
+                  variant="subtitle2"
+                  fontWeight="bold"
+                  color={user.courses.length === 0 ? "error" : "text.primary"}
+                >
+                  {user.user_name}
+                </Typography>
+                <Chip
+                  label={user.courses.length}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: 10 }}
+                  color={user.courses.length === 0 ? "error" : "default"}
+                />
               </Stack>
-            ) : (
-              <DataGrid
-                rows={user.courses}
-                columns={columns}
-                autoHeight
-                hideFooter
-                disableRowSelectionOnClick
-                sx={{ border: 'none', "& .MuiDataGrid-cell": { fontSize: 13 } }}
-              />
-            )}
-          </AccordionDetails>
-        </Accordion>
-      ))}
+            </AccordionSummary>
+
+            <AccordionDetails sx={{ p: isMobile ? 1.5 : 2, pt: 0 }}>
+              <Button
+                variant="contained"
+                sx={{ mb: 2, textTransform: "none" }}
+                fullWidth
+                onClick={() => {
+                  setSelectedUser(user);
+                  setOpen(true);
+                }}
+              >
+                Assign New Course
+              </Button>
+
+              {isMobile ? (
+                <Stack spacing={1}>
+                  {user.courses.map((course) => (
+                    <Box
+                      key={course.id}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 1,
+                        bgcolor: "action.hover",
+                        border: `1px solid ${theme.palette.divider}`
+                      }}
+                    >
+                      <Stack direction="row" justifyContent="space-between" mb={1}>
+                        <Typography variant="body2" fontWeight="bold">
+                          {course.course_title}
+                        </Typography>
+                        <Select
+                          size="small"
+                          value={course.status}
+                          onChange={(e) => updateStatus(course.subscription_id, e.target.value)}
+                        >
+                          <MenuItem value="active">Active</MenuItem>
+                          <MenuItem value="inactive">Inactive</MenuItem>
+                        </Select>
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Enrolled: {formatDate(course.subscribed_at)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                        Expires: {formatDate(course.expires_at)}
+                      </Typography>
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={() => requestDelete(course.subscription_id)}
+                      >
+                        Remove Subscription
+                      </Button>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <DataGrid
+                  rows={user.courses}
+                  columns={columns}
+                  autoHeight
+                  hideFooter
+                  disableRowSelectionOnClick
+                  sx={{ border: "none", "& .MuiDataGrid-cell": { fontSize: 13 } }}
+                />
+              )}
+            </AccordionDetails>
+          </Accordion>
+        ))
+      )}
 
       {/* Assign Course Dialog */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs" fullScreen={isMobile}>
@@ -292,9 +317,13 @@ export default function SubscriptionsTable() {
             displayEmpty
             sx={{ mb: 2 }}
           >
-            <MenuItem disabled value="">Select course</MenuItem>
-            {courses.map(course => (
-              <MenuItem key={course.id} value={course.id}>{course.course_name}</MenuItem>
+            <MenuItem disabled value="">
+              Select course
+            </MenuItem>
+            {courses.map((course) => (
+              <MenuItem key={course.id} value={course.id}>
+                {course.course_name}
+              </MenuItem>
             ))}
           </Select>
 
@@ -304,16 +333,26 @@ export default function SubscriptionsTable() {
             onChange={(e) => setSelectedTerm(e.target.value)}
             displayEmpty
           >
-            <MenuItem disabled value="">Select term</MenuItem>
-            {terms.map(term => (
-              <MenuItem key={term.id} value={term.id}>{term.term_number} ({formatDate(term.start_date)} - {formatDate(term.end_date)})</MenuItem>
+            <MenuItem disabled value="">
+              Select term
+            </MenuItem>
+            {terms.map((term) => (
+              <MenuItem key={term.id} value={term.id}>
+                {term.term_number} ({formatDate(term.start_date)} - {formatDate(term.end_date)})
+              </MenuItem>
             ))}
           </Select>
-
         </DialogContent>
         <DialogActions sx={{ p: 2, flexDirection: isMobile ? "column" : "row" }}>
-          <Button fullWidth={isMobile} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" fullWidth={isMobile} disabled={!selectedCourse || !selectedTerm} onClick={assignCourse}>
+          <Button fullWidth={isMobile} onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            fullWidth={isMobile}
+            disabled={!selectedCourse || !selectedTerm}
+            onClick={assignCourse}
+          >
             Confirm Assignment
           </Button>
         </DialogActions>
@@ -328,7 +367,9 @@ export default function SubscriptionsTable() {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">Cancel</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">
+            Cancel
+          </Button>
           <Button onClick={confirmDelete} color="error" variant="contained" autoFocus>
             Remove Access
           </Button>
