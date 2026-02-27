@@ -28,60 +28,70 @@ export default function SubscriptionsTable() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const axiosInstance = useAxiosInstance()();
 
-  // API Base URL
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const API_SUBSCRIPTIONS = `${API_BASE_URL}/api/subscriptions`;
   const API_COURSES = `${API_BASE_URL}/api/courses`;
+  const API_TERMS = `${API_BASE_URL}/api/terms`; // Added for term selection
 
   const [groupedUsers, setGroupedUsers] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [terms, setTerms] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
 
   useEffect(() => {
     fetchSubscriptions();
     fetchCourses();
+    fetchTerms();
   }, []);
 
   async function fetchSubscriptions() {
     const res = await axiosInstance.get(`${API_SUBSCRIPTIONS}/users`);
     const data = res.data?.data || [];
 
-       const grouped = Object.values(
-  data.reduce((acc, row) => {
-    if (!acc[row.user_id]) {
-      acc[row.user_id] = {
-        user_id: row.user_id,
-        user_name: row.user_name,
-        courses: []
-      };
-    }
+    // Explicitly filter active & non-expired subscriptions
+    const activeData = data.filter(row => row.status === "active" && new Date(row.expires_at) >= new Date());
 
-    // Only push if there is a subscription
-    if (row.subscription_id) {
-      acc[row.user_id].courses.push({
-        id: row.subscription_id,
-        subscription_id: row.subscription_id,
-        course_id: row.course_id,
-        course_title: row.course_title,
-        status: row.status,
-        subscribed_at: row.subscribed_at,
-        source: row.source
-      });
-    }
-
-    return acc;
-  }, {})
-);
+    const grouped = Object.values(
+      activeData.reduce((acc, row) => {
+        if (!acc[row.user_id]) {
+          acc[row.user_id] = {
+            user_id: row.user_id,
+            user_name: row.user_name,
+            courses: []
+          };
+        }
+        if (row.subscription_id) {
+          acc[row.user_id].courses.push({
+            id: row.subscription_id,
+            subscription_id: row.subscription_id,
+            course_id: row.course_id,
+            course_title: row.course_title,
+            term_number: row.term_number,
+            status: row.status,
+            subscribed_at: row.subscribed_at,
+            expires_at: row.expires_at,
+            source: row.source
+          });
+        }
+        return acc;
+      }, {})
+    );
     setGroupedUsers(grouped);
   }
 
   async function fetchCourses() {
     const res = await axiosInstance.get(API_COURSES);
     setCourses(res.data?.data || []);
+  }
+
+  async function fetchTerms() {
+    const res = await axiosInstance.get(API_TERMS);
+    setTerms(res.data?.data || []);
   }
 
   function formatDate(dateString) {
@@ -110,12 +120,17 @@ export default function SubscriptionsTable() {
   };
 
   async function assignCourse() {
+    if (!selectedCourse || !selectedTerm) return;
+
     await axiosInstance.post(API_SUBSCRIPTIONS, {
       user_id: selectedUser.user_id,
-      course_id: selectedCourse
+      course_id: selectedCourse,
+      term_id: selectedTerm
     });
+
     setOpen(false);
     setSelectedCourse("");
+    setSelectedTerm("");
     fetchSubscriptions();
   }
 
@@ -125,50 +140,61 @@ export default function SubscriptionsTable() {
   }
 
   const columns = [
-    { field: "course_title", headerName: "Course", flex: 1, minWidth: 150 },
-    {
-      field: "status",
-      headerName: "Status",
-      width: 140,
-      renderCell: ({ row }) => (
-        <Select
-          value={row.status}
-          size="small"
-          onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
-        >
-          <MenuItem value="active">Active</MenuItem>
-          <MenuItem value="inactive">Inactive</MenuItem>
-        </Select>
-      )
-    },
-    {
-      field: "subscribed_at",
-      headerName: "Subscribed On",
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: 13 }}>
-          {formatDate(params.row.subscribed_at)}
-        </Typography>
-      )
-    },
-    {
-      field: "actions",
-      headerName: "Action",
-      width: 120,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <Button
-          size="small"
-          color="error"
-          variant="outlined"
-          startIcon={<DeleteOutlineIcon />}
-          onClick={() => requestDelete(row.subscription_id)}
-        >
-          Remove
-        </Button>
-      )
-    }
-  ];
+  { field: "course_title", headerName: "Course", flex: 1, minWidth: 150 },
+  { field: "term_number", headerName: "Term", width: 120 },
+  {
+    field: "expires_at",
+    headerName: "Expires On",
+    width: 140,
+    renderCell: ({ row }) => (
+      <Typography sx={{ fontSize: 13 }}>
+        {formatDate(row.expires_at)}
+      </Typography>
+    ),
+  },
+  {
+    field: "status",
+    headerName: "Status",
+    width: 140,
+    renderCell: ({ row }) => (
+      <Select
+        value={row.status}
+        size="small"
+        onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
+      >
+        <MenuItem value="active">Active</MenuItem>
+        <MenuItem value="inactive">Inactive</MenuItem>
+      </Select>
+    ),
+  },
+  {
+    field: "subscribed_at",
+    headerName: "Subscribed On",
+    width: 150,
+    renderCell: ({ row }) => (
+      <Typography sx={{ fontSize: 13 }}>
+        {formatDate(row.subscribed_at)}
+      </Typography>
+    ),
+  },
+  {
+    field: "actions",
+    headerName: "Action",
+    width: 120,
+    sortable: false,
+    renderCell: ({ row }) => (
+      <Button
+        size="small"
+        color="error"
+        variant="outlined"
+        startIcon={<DeleteOutlineIcon />}
+        onClick={() => requestDelete(row.subscription_id)}
+      >
+        Remove
+      </Button>
+    ),
+  },
+];
 
   return (
     <Box sx={{ width: "100%", overflowX: "hidden" }}>
@@ -178,24 +204,23 @@ export default function SubscriptionsTable() {
           sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-  <Stack direction="row" spacing={1} alignItems="center">
-    <Typography
-      variant="subtitle2"
-      fontWeight="bold"
-      color={user.courses.length === 0 ? 'error' : 'text.primary'}
-    >
-      {user.user_name}
-    </Typography>
-    <Chip
-      label={user.courses.length}
-      size="small"
-      variant="outlined"
-      sx={{ height: 20, fontSize: 10 }}
-      color={user.courses.length === 0 ? 'error' : 'default'}
-    />
-  </Stack>
-</AccordionSummary>
-
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography
+                variant="subtitle2"
+                fontWeight="bold"
+                color={user.courses.length === 0 ? 'error' : 'text.primary'}
+              >
+                {user.user_name}
+              </Typography>
+              <Chip
+                label={user.courses.length}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: 10 }}
+                color={user.courses.length === 0 ? 'error' : 'default'}
+              />
+            </Stack>
+          </AccordionSummary>
 
           <AccordionDetails sx={{ p: isMobile ? 1.5 : 2, pt: 0 }}>
             <Button
@@ -222,8 +247,11 @@ export default function SubscriptionsTable() {
                         <MenuItem value="inactive">Inactive</MenuItem>
                       </Select>
                     </Stack>
-                    <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                    <Typography variant="caption" color="text.secondary" display="block">
                       Enrolled: {formatDate(course.subscribed_at)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                      Expires: {formatDate(course.expires_at)}
                     </Typography>
                     <Button
                       fullWidth
@@ -256,21 +284,36 @@ export default function SubscriptionsTable() {
         <DialogTitle>Assign Course</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>Assigning to: {selectedUser?.user_name}</DialogContentText>
+
           <Select
             fullWidth
             value={selectedCourse}
             onChange={(e) => setSelectedCourse(e.target.value)}
             displayEmpty
+            sx={{ mb: 2 }}
           >
             <MenuItem disabled value="">Select course</MenuItem>
             {courses.map(course => (
               <MenuItem key={course.id} value={course.id}>{course.course_name}</MenuItem>
             ))}
           </Select>
+
+          <Select
+            fullWidth
+            value={selectedTerm}
+            onChange={(e) => setSelectedTerm(e.target.value)}
+            displayEmpty
+          >
+            <MenuItem disabled value="">Select term</MenuItem>
+            {terms.map(term => (
+              <MenuItem key={term.id} value={term.id}>{term.term_number} ({formatDate(term.start_date)} - {formatDate(term.end_date)})</MenuItem>
+            ))}
+          </Select>
+
         </DialogContent>
         <DialogActions sx={{ p: 2, flexDirection: isMobile ? "column" : "row" }}>
           <Button fullWidth={isMobile} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" fullWidth={isMobile} disabled={!selectedCourse} onClick={assignCourse}>
+          <Button variant="contained" fullWidth={isMobile} disabled={!selectedCourse || !selectedTerm} onClick={assignCourse}>
             Confirm Assignment
           </Button>
         </DialogActions>
