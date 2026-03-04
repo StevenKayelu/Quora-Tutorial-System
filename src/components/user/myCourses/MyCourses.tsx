@@ -74,16 +74,16 @@ const getCurrentTermNumber = (terms = []) => {
 };
 
 const isSubscriptionActive = (course) => {
-  if (!course?.subscription) return false;
+  if (!course?.subscriptions?.length) return false;
 
-  const { status, expires_at } = course.subscription;
-
-  if (status !== "active") return false;
-
-  if (expires_at && new Date(expires_at) < new Date()) return false;
-
-  return true;
+  return course.subscriptions.some(
+    s =>
+      s.status === "active" &&
+      (!s.expires_at || new Date(s.expires_at) >= new Date())
+  );
 };
+
+
 
 /**
  * Determines if a term is unlocked
@@ -91,7 +91,13 @@ const isSubscriptionActive = (course) => {
 const isTermUnlocked = (term, course) => {
   if (!isSubscriptionActive(course)) return false;
 
-  const subscriptionTermId = course.subscription?.term_id;
+const activeSub = course.subscriptions?.find(
+  s =>
+    s.status === "active" &&
+    (!s.expires_at || new Date(s.expires_at) >= new Date())
+);
+
+const subscriptionTermId = activeSub?.term_id;
 
   // If tied to specific term → only unlock that term
   return Number(term.id) === Number(subscriptionTermId);
@@ -522,12 +528,21 @@ const renderMaterials = (materials = []) => {
           </Button>
           {loading ? (
             <CircularProgress />
-          ) : courses.length === 0 ? (
-            <Typography>No active courses in this school.</Typography>
+          ) : !courses || courses.length === 0? (
+            <Typography >No subscribed courses in this school.</Typography>
           ) : (
            courses.map((course) => {
-              const active = isSubscriptionActive(course);
+            const active = isSubscriptionActive(course);
+            const activeSub = course.subscriptions?.find(
+                s =>
+                    s.status === "active" &&
+                    (!s.expires_at || new Date(s.expires_at) >= new Date())
+                );
 
+                const lastExpiredSub = course.subscriptions
+                ?.filter(s => s.expires_at)
+                ?.sort((a, b) => new Date(b.expires_at) - new Date(a.expires_at))[0];
+                
               return (
                 <Paper
                   key={course.id}
@@ -548,17 +563,17 @@ const renderMaterials = (materials = []) => {
                     {course.course_name}
                   </Typography>
 
-                  {course.subscription?.expires_at && (
+                 {activeSub?.expires_at && (
                     <Typography variant="caption" color="text.secondary">
-                      Expires: {new Date(course.subscription.expires_at).toLocaleDateString()}
+                        Expires: {new Date(activeSub.expires_at).toLocaleDateString()}
                     </Typography>
-                  )}
+                    )}
 
-                  {!active && (
+                  {!active && lastExpiredSub?.expires_at && (
                     <Typography variant="caption" color="error">
-                      Subscription Expired
+                        Expired on: {new Date(lastExpiredSub.expires_at).toLocaleDateString()}
                     </Typography>
-                  )}
+                    )}
                 </Paper>
               );
             })
