@@ -60,6 +60,32 @@ export default function MyCourses() {
   const location = useLocation();
   const today = new Date();
 
+  //Term status Heler
+  const getTermStatus = (term, course) => {
+  const start = new Date(term.start_date);
+  const end = new Date(term.end_date);
+
+  const active = isSubscriptionActive(course);
+
+  if (!active) {
+    return { label: "Subscription Expired", color: "error" };
+  }
+
+  if (today >= start && today <= end) {
+    return { label: "Current Term", color: "success" };
+  }
+
+  if (today < start) {
+    return { label: "Upcoming", color: "warning" };
+  }
+
+  if (today > end) {
+    return { label: "Completed", color: "info" };
+  }
+
+  return { label: "Locked", color: "default" };
+};
+
 /**
  * Determines the current active term
  */
@@ -100,9 +126,7 @@ const isTermUnlocked = (term, course) => {
 
   if (!currentTermNumber) return false;
 
-  if (currentTermNumber === 3) return true;
-
-  return Number(term.term_number) === currentTermNumber;
+  return Number(term.term_number) <= currentTermNumber;
 };
 
 
@@ -586,15 +610,12 @@ const renderMaterials = (materials = []) => {
           ) : (
             (structures[selectedCourse.id] || []).map((term) => {
               const unlocked = isTermUnlocked(term, selectedCourse);
+              const status = getTermStatus(term, selectedCourse);
 
               return (
                 <Tooltip
                   key={term.id}
-                  title={
-                    unlocked
-                      ? "Term available"
-                      : "Locked by subscription"
-                  }
+                  title={unlocked ? "Term available" : "Locked by subscription"}
                   arrow
                 >
                   <Paper
@@ -612,13 +633,19 @@ const renderMaterials = (materials = []) => {
                     }}
                   >
                     <Typography fontWeight={600}>
-                      Term {term.term_number}
+                      Term {term.term_number} {!unlocked && "🔒"}
                     </Typography>
 
                     <Typography variant="body2">
                       {new Date(term.start_date).toLocaleDateString()} –{" "}
                       {new Date(term.end_date).toLocaleDateString()}
                     </Typography>
+
+                    <Chip
+                    label={status.label}
+                    color={status.color}
+                    size="small"
+                  />
                   </Paper>
                 </Tooltip>
               );
