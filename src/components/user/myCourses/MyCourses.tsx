@@ -94,11 +94,9 @@ const getCurrentTermNumber = (terms = []) => {
 const isTermUnlocked = (term, course) => {
   if (!isSubscriptionActive(course)) return false;
 
-const activeSub = course.subscriptions?.find(
-  s =>
-    s.status === "active" &&
-    (!s.expires_at || new Date(s.expires_at) >= new Date())
-);
+  const activeSub = isSubscriptionActive(course)
+  ? { expires_at: course.expires_at }
+  : null;
 
 const subscriptionTermId = activeSub?.term_id;
 
