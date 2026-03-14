@@ -498,15 +498,7 @@ const renderMaterials = (materials = []) => {
   return (
     <Box sx={{ p: 2 }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 3, background: "linear-gradient(135deg, #1976d2 30%, #42a5f5 90%)", color: "white", mb: 3 }}>
-      <Typography
-        variant="h4"
-        sx={{
-          mb: 1,
-          color: "white",
-          fontWeight: 600,
-          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem", lg: "2.25rem" },
-        }}
-      >
+      <Typography variant="h5" fontWeight={600} mb={1}>
         My Courses | {systemInfo?.system_name || "Tutorial System"}
       </Typography>
 
@@ -598,62 +590,138 @@ const renderMaterials = (materials = []) => {
       )}
 
       {selectedCourse && !selectedTerm && (
-        <Box>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => handleBack("course")}
-            sx={{ mb: 2 }}
-          >
-            Back to Courses
-          </Button>
-          {loadingStructure ? (
-            <CircularProgress />
-          ) : (
-            (structures[selectedCourse.id] || []).map((term) => {
-              const unlocked = isTermUnlocked(term, selectedCourse);
-              const status = getTermStatus(term, selectedCourse);
+  <Box>
+    <Button
+      startIcon={<ArrowBack />}
+      onClick={() => handleBack("course")}
+      sx={{ mb: 2 }}
+    >
+      Back to Courses
+    </Button>
 
-              return (
-                <Tooltip
-                  key={term.id}
-                  title={unlocked ? "Term available" : "Locked by subscription"}
-                  arrow
-                >
-                  <Paper
-                    sx={{
-                      ...cardStyle,
-                      opacity: unlocked ? 1 : 0.45,
-                      cursor: unlocked ? "pointer" : "not-allowed",
-                    }}
-                    onClick={() => {
-                      if (!unlocked) {
-                        showSnack("info", "This term is locked by your subscription.");
-                        return;
-                      }
-                      handleSelectTerm(term);
-                    }}
-                  >
-                    <Typography fontWeight={600}>
-                      Term {term.term_number} {!unlocked && "🔒"}
-                    </Typography>
-
-                    <Typography variant="body2">
-                      {new Date(term.start_date).toLocaleDateString()} –{" "}
-                      {new Date(term.end_date).toLocaleDateString()}
-                    </Typography>
-
-                    <Chip
-                    label={status.label}
-                    color={status.color}
-                    size="small"
-                  />
-                  </Paper>
-                </Tooltip>
-              );
-            })
-          )}
+    {loadingStructure ? (
+      <CircularProgress />
+    ) : (
+      <>
+        {/* Progress Bar */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} mb={1}>
+            Course Progress
+          </Typography>
+          <Box sx={{ background: "#e0e0e0", borderRadius: 2, height: 10 }}>
+            <Box
+              sx={{
+                width: `${Math.round(
+                  ((structures[selectedCourse.id] || []).filter(term =>
+                    new Date(term.end_date) < today
+                  ).length /
+                    (structures[selectedCourse.id]?.length || 1)) *
+                    100
+                )}%`,
+                height: "100%",
+                bgcolor: "#4caf50",
+                borderRadius: 2,
+                transition: "width 0.5s ease-in-out",
+              }}
+            />
+          </Box>
         </Box>
-      )}
+
+        {/* Horizontal Term Cards */}
+        <Box
+          sx={{
+            display: "flex",
+            overflowX: "auto",
+            gap: 2,
+            pb: 2,
+            "&::-webkit-scrollbar": { height: 8 },
+            "&::-webkit-scrollbar-thumb": { backgroundColor: "#90a4ae", borderRadius: 4 },
+            "&::-webkit-scrollbar-track": { background: "#f0f0f0" },
+          }}
+        >
+          {(structures[selectedCourse.id] || []).map((term) => {
+            const unlocked = isTermUnlocked(term, selectedCourse);
+            const status = getTermStatus(term, selectedCourse);
+
+            const startDate = new Date(term.start_date);
+            const endDate = new Date(term.end_date);
+
+            const formattedStart = startDate.toLocaleDateString(undefined, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            });
+            const formattedEnd = endDate.toLocaleDateString(undefined, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            });
+
+            // Status Icon
+            let statusIcon = "🔒";
+            if (status.label === "Current Term") statusIcon = "✅";
+            else if (status.label === "Upcoming") statusIcon = "⏳";
+            else if (status.label === "Completed") statusIcon = "✔️";
+
+            return (
+              <Tooltip
+                key={term.id}
+                title={unlocked ? "Term available" : "Locked by subscription"}
+                arrow
+              >
+                <Paper
+                  sx={{
+                    minWidth: 220,
+                    p: 2,
+                    borderRadius: 3,
+                    cursor: unlocked ? "pointer" : "not-allowed",
+                    opacity: unlocked ? 1 : 0.5,
+                    flexShrink: 0,
+                    border: `2px solid ${
+                      status.label === "Current Term"
+                        ? "#4caf50"
+                        : status.label === "Upcoming"
+                        ? "#ff9800"
+                        : "#90a4ae"
+                    }`,
+                    background:
+                      status.label === "Current Term"
+                        ? "linear-gradient(135deg, #e8f5e9 30%, #c8e6c9 90%)"
+                        : status.label === "Upcoming"
+                        ? "linear-gradient(135deg, #fff3e0 30%, #ffe0b2 90%)"
+                        : "linear-gradient(135deg, #eceff1 30%, #cfd8dc 90%)",
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                    "&:hover": unlocked
+                      ? { transform: "scale(1.05)", boxShadow: "0 6px 25px rgba(0,0,0,0.2)" }
+                      : {},
+                  }}
+                  onClick={() => {
+                    if (!unlocked) {
+                      showSnack("info", "This term is locked by your subscription.");
+                      return;
+                    }
+                    handleSelectTerm(term);
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" spacing={1} justifyContent="space-between">
+                    <Typography fontWeight={600} fontSize={16}>
+                      Term {term.term_number} {statusIcon}
+                    </Typography>
+                    <Chip label={status.label} color={status.color} size="small" />
+                  </Stack>
+
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {formattedStart} – {formattedEnd}
+                  </Typography>
+                </Paper>
+              </Tooltip>
+            );
+          })}
+        </Box>
+      </>
+    )}
+  </Box>
+)}
 
       {selectedTerm && (
         <Box>
