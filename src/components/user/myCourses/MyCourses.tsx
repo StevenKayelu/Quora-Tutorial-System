@@ -120,14 +120,20 @@ const getCurrentTermNumber = (terms = []) => {
  */
 
 const isTermUnlocked = (term, course) => {
+  // Subscription check
   if (!isSubscriptionActive(course)) return false;
 
-  const courseTerms = structures[course.id] || [];
-  const currentTermNumber = getCurrentTermNumber(courseTerms);
+  const start = new Date(term.start_date);
+  const end = new Date(term.end_date);
 
-  if (!currentTermNumber) return false;
+  // Current term
+  if (today >= start && today <= end) return true;
 
-  return Number(term.term_number) <= currentTermNumber;
+  // Optionally unlock past terms for review
+  if (today > end) return true;
+
+  // Upcoming terms remain locked
+  return false;
 };
 
 
