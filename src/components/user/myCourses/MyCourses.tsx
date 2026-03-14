@@ -73,14 +73,17 @@ const getCurrentTermNumber = (terms = []) => {
   return activeTerm ? Number(activeTerm.term_number) : null;
 };
 
-const isSubscriptionActive = (course) => {
-  if (!course?.subscriptions?.length) return false;
+  const isSubscriptionActive = (course) => {
+  if (!course) return false;
 
-  return course.subscriptions.some(
-    s =>
-      s.status === "active" &&
-      (!s.expires_at || new Date(s.expires_at) >= new Date())
-  );
+  if (course.subscription_status !== "active") return false;
+
+  if (!course.expires_at) return true;
+
+  const expiry = new Date(course.expires_at);
+  expiry.setHours(23, 59, 59, 999);
+
+  return expiry >= new Date();
 };
 
 
