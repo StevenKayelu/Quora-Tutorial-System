@@ -91,29 +91,19 @@ const getCurrentTermNumber = (terms = []) => {
 /**
  * Determines if a term is unlocked
  */
+
 const isTermUnlocked = (term, course) => {
   if (!isSubscriptionActive(course)) return false;
 
-  const activeSub = isSubscriptionActive(course)
-  ? { expires_at: course.expires_at }
-  : null;
+  const courseTerms = structures[course.id] || [];
+  const currentTermNumber = getCurrentTermNumber(courseTerms);
 
-const subscriptionTermId = activeSub?.term_id;
+  if (!currentTermNumber) return false;
 
-  // If tied to specific term → only unlock that term
-  return Number(term.id) === Number(subscriptionTermId);
+  if (currentTermNumber === 3) return true;
+
+  return Number(term.term_number) === currentTermNumber;
 };
-// const isTermUnlocked = (term, allTerms) => {
-//   const currentTermNumber = getCurrentTermNumber(allTerms);
-
-//   if (!currentTermNumber) return false;
-
-//   // If current term is 3 → unlock all
-//   if (currentTermNumber === 3) return true;
-
-//   // Otherwise only current term is unlocked
-//   return Number(term.term_number) === currentTermNumber;
-// };
 
 
   useEffect(() => {
