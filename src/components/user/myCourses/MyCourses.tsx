@@ -100,6 +100,29 @@ const getCurrentTermNumber = (terms = []) => {
   return activeTerm ? Number(activeTerm.term_number) : null;
 };
 
+const getCurrentTermProgress = (terms = []) => {
+  const now = new Date();
+
+  const currentTerm = terms.find(
+    (t) =>
+      new Date(t.start_date) <= now &&
+      new Date(t.end_date) >= now
+  );
+
+  if (!currentTerm) return 0;
+
+  const start = new Date(currentTerm.start_date);
+  const end = new Date(currentTerm.end_date);
+
+  const totalDuration = end - start;
+  const elapsed = now - start;
+
+  if (elapsed <= 0) return 0;
+  if (elapsed >= totalDuration) return 100;
+
+  return Math.round((elapsed / totalDuration) * 100);
+};
+
   const isSubscriptionActive = (course) => {
   if (!course) return false;
 
@@ -135,6 +158,15 @@ const isTermUnlocked = (term, course) => {
   // Upcoming terms remain locked
   return false;
 };
+const terms = structures[selectedCourse?.id] || [];
+
+const currentTerm = terms.find(
+  (t) =>
+    new Date(t.start_date) <= today &&
+    new Date(t.end_date) >= today
+);
+
+const progressPercent = getCurrentTermProgress(terms);
 
 
   useEffect(() => {
@@ -367,7 +399,10 @@ const renderTermTests = (tests = []) => (
       tests.map((t) => (
         <Paper key={t.id} sx={{ p: 1.5, mb: 1 }}>
           <Typography>{t.title}</Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+          >
             <IconButton onClick={() => handlePreview(t)}>
   <PreviewIcon />
 </IconButton>
@@ -410,7 +445,10 @@ const renderTutorialSheets = (sheets = []) => (
       sheets.map((s) => (
         <Paper key={s.id} sx={{ p: 1.5, mb: 1 }}>
           <Typography>{s.title}</Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+          >
             <IconButton onClick={() => handlePreview(s)}>
               <PreviewIcon />
             </IconButton>
@@ -502,9 +540,19 @@ const renderMaterials = (materials = []) => {
   };
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box
+      sx={{
+        px: { xs: 1, sm: 2, md: 3 },
+        py: { xs: 2, md: 3 },
+      }}
+    >
       <Paper elevation={3} sx={{ p: 3, borderRadius: 3, background: "linear-gradient(135deg, #1976d2 30%, #42a5f5 90%)", color: "white", mb: 3 }}>
-      <Typography variant="h5" fontWeight={600} mb={1}>
+     <Typography
+        sx={{
+          fontSize: { xs: "1.2rem", sm: "1.5rem", md: "1.8rem" },
+          fontWeight: 600,
+        }}
+      >
         My Courses | {systemInfo?.system_name || "Tutorial System"}
       </Typography>
 
@@ -612,18 +660,22 @@ const renderMaterials = (materials = []) => {
         {/* Progress Bar */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" fontWeight={600} mb={1}>
-            Course Progress
+            {currentTerm
+              ? `Term ${currentTerm.term_number} Progress`
+              : "No Active Term"}
           </Typography>
-          <Box sx={{ background: "#e0e0e0", borderRadius: 2, height: 10 }}>
+
+          <Box
+            sx={{
+              background: "#e0e0e0",
+              borderRadius: 2,
+              height: { xs: 8, sm: 10 },
+              overflow: "hidden",
+            }}
+          >
             <Box
               sx={{
-                width: `${Math.round(
-                  ((structures[selectedCourse.id] || []).filter(term =>
-                    new Date(term.end_date) < today
-                  ).length /
-                    (structures[selectedCourse.id]?.length || 1)) *
-                    100
-                )}%`,
+                width: `${progressPercent}%`,
                 height: "100%",
                 bgcolor: "#4caf50",
                 borderRadius: 2,
@@ -631,7 +683,17 @@ const renderMaterials = (materials = []) => {
               }}
             />
           </Box>
+
+          <Typography variant="caption" color="text.secondary">
+            {progressPercent}% completed
+          </Typography>
         </Box>
+
+        <Typography variant="caption" color="text.secondary">
+        {currentTerm
+          ? `${Math.ceil((new Date(currentTerm.end_date) - today) / (1000 * 60 * 60 * 24))} days remaining`
+          : "No active term"}
+      </Typography>
 
         {/* Horizontal Term Cards */}
         <Box
@@ -677,7 +739,7 @@ const renderMaterials = (materials = []) => {
               >
                 <Paper
                   sx={{
-                    minWidth: 220,
+                    minWidth: { xs: 180, sm: 200, md: 220 },
                     p: 2,
                     borderRadius: 3,
                     cursor: unlocked ? "pointer" : "not-allowed",
