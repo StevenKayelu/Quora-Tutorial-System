@@ -18,6 +18,7 @@ import {
   Stack,
   CircularProgress
 } from "@mui/material";
+import { Snackbar, Alert } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { DataGrid } from "@mui/x-data-grid";
@@ -44,6 +45,20 @@ export default function SubscriptionsTable() {
   const [selectedTerm, setSelectedTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
+
+  const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: "",
+  severity: "success" // success | error | warning | info
+});
+
+const showSnackbar = (message, severity = "success") => {
+  setSnackbar({ open: true, message, severity });
+};
+
+const handleCloseSnackbar = () => {
+  setSnackbar(prev => ({ ...prev, open: false }));
+};
 
   useEffect(() => {
     fetchAllData();
@@ -130,34 +145,78 @@ export default function SubscriptionsTable() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (subToDelete) {
-      await axiosInstance.delete(`${API_SUBSCRIPTIONS}/${subToDelete}`);
-      await fetchSubscriptions();
-    }
-    setDeleteDialogOpen(false);
-    setSubToDelete(null);
-  };
+const confirmDelete = async () => {
+  if (!subToDelete) return;
 
-  async function assignCourse() {
-    if (!selectedCourse || !selectedTerm) return;
+  setDeleteDialogOpen(false); // close early = faster feel
 
-    await axiosInstance.post(API_SUBSCRIPTIONS, {
+  // Optimistic update
+  setGroupedUsers(prev =>
+    prev.map(user => ({
+      ...user,
+      courses: user.courses.filter(c => c.subscription_id !== subToDelete)
+    }))
+  );
+
+  try {
+    await axiosInstance.delete(`${API_SUBSCRIPTIONS}/${subToDelete}`);
+    showSnackbar("Subscription removed successfully", "success");
+  } catch (err) {
+    showSnackbar("Failed to remove subscription", "error");
+    fetchSubscriptions(); // rollback
+  }
+
+  setSubToDelete(null);
+};
+
+async function assignCourse() {
+  if (!selectedCourse || !selectedTerm) return;
+
+  try {
+    const res = await axiosInstance.post(API_SUBSCRIPTIONS, {
       user_id: selectedUser.user_id,
       course_id: selectedCourse,
       term_id: selectedTerm
     });
 
-    setOpen(false);
-    setSelectedCourse("");
-    setSelectedTerm("");
-    fetchSubscriptions();
+    const newSub = res.data.data;
+
+    setGroupedUsers(prev =>
+      prev.map(user =>
+        user.user_id === selectedUser.user_id
+          ? { ...user, courses: [...user.courses, newSub] }
+          : user
+      )
+    );
+
+    showSnackbar("Course assigned successfully 🎉", "success");
+
+  } catch (err) {
+    showSnackbar("Failed to assign course", "error");
   }
 
-  async function updateStatus(subId, newStatus) {
+  setOpen(false);
+}
+
+async function updateStatus(subId, newStatus) {
+  // Optimistic UI
+  setGroupedUsers(prev =>
+    prev.map(user => ({
+      ...user,
+      courses: user.courses.map(c =>
+        c.subscription_id === subId ? { ...c, status: newStatus } : c
+      )
+    }))
+  );
+
+  try {
     await axiosInstance.put(`${API_SUBSCRIPTIONS}/${subId}/status`, { status: newStatus });
-    fetchSubscriptions();
+    showSnackbar("Status updated", "success");
+  } catch (err) {
+    showSnackbar("Failed to update status", "error");
+    fetchSubscriptions(); // rollback
   }
+}
 
   const columns = [
     {
@@ -401,6 +460,22 @@ export default function SubscriptionsTable() {
           </Button>
         </DialogActions>
       </Dialog>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={3000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
     </Box>
   );
+
 }
