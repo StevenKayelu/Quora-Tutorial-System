@@ -696,17 +696,18 @@ const renderMaterials = (materials = []) => {
       </Typography>
 
         {/* Horizontal Term Cards */}
-        <Box
-          sx={{
-            display: "flex",
-            overflowX: "auto",
-            gap: 2,
-            pb: 2,
-            "&::-webkit-scrollbar": { height: 8 },
-            "&::-webkit-scrollbar-thumb": { backgroundColor: "#90a4ae", borderRadius: 4 },
-            "&::-webkit-scrollbar-track": { background: "#f0f0f0" },
-          }}
-        >
+          <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          overflowX: { xs: "visible", sm: "auto" },   
+          gap: 2,
+          pb: 2,
+                  "&::-webkit-scrollbar": { height: 8 },
+                  "&::-webkit-scrollbar-thumb": { backgroundColor: "#90a4ae", borderRadius: 4 },
+                  "&::-webkit-scrollbar-track": { background: "#f0f0f0" },
+        }}
+      >
           {(structures[selectedCourse.id] || []).map((term) => {
             const unlocked = isTermUnlocked(term, selectedCourse);
             const status = getTermStatus(term, selectedCourse);
@@ -739,12 +740,12 @@ const renderMaterials = (materials = []) => {
               >
                 <Paper
                   sx={{
-                    minWidth: { xs: 180, sm: 200, md: 220 },
+                    width: { xs: "100%", sm: 200, md: 220 },
+                    flexShrink: { xs: 1, sm: 0 },
                     p: 2,
                     borderRadius: 3,
                     cursor: unlocked ? "pointer" : "not-allowed",
                     opacity: unlocked ? 1 : 0.5,
-                    flexShrink: 0,
                     border: `2px solid ${
                       status.label === "Current Term"
                         ? "#4caf50"
