@@ -26,7 +26,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-
+import { useMediaQuery } from "@mui/material"; 
 import { useAuthContext } from "../../../utils/hooks/useCustomContext";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
 import ProtectedRoutes from "../../ProtectedRoutes";
