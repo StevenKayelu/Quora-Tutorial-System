@@ -12,6 +12,7 @@ import MyCourses from "../../components/user/myCourses/MyCourses";
 import AvailableCourses from "../../components/user/courses/AvailableCourses";
 import Payments from "../../components/user/payments/Payments";
 import Contact from "../../components/user/contact/Contact";
+
 import MembershipCardPage from "../../components/user/MembershipCardPage";
 
 const UserRoutes = () => {
