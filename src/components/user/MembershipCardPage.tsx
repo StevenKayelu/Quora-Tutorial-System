@@ -593,6 +593,7 @@ const MembershipCardPage = () => {
           </Paper>
         )}
       </Stack>
+      
     </Box>
   );
 };
