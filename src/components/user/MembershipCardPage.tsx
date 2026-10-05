@@ -16,9 +16,9 @@ import {
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import CardMembershipRoundedIcon from "@mui/icons-material/CardMembershipRounded";
-import useAxiosInstance from "../../../utils/config/axiosInstance";
-import { useSystemInfo } from "../../../contexts/SystemInfoContext";
-import { useAuthContext } from "../../../utils/hooks/useCustomContext";
+import useAxiosInstance from "../../utils/config/axiosInstance";
+import { useSystemInfo } from "../../contexts/SystemInfoContext";
+import { useAuthContext } from "../../utils/hooks/useCustomContext";
 
 type MembershipCardData = {
   studentName: string;
