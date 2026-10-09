@@ -93,8 +93,8 @@ const ProfileBadge: React.FC<ProfileBadgeProps> = ({ user, onClick }) => {
           ) : (
             <Box
               sx={{
-                width: 300,
-                height: 300,
+                width: "min(300px, 70vw)",
+                aspectRatio: "1 / 1",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

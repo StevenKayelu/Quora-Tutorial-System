@@ -1,4 +1,4 @@
-import { Tabs, Tab, Box, IconButton, Tooltip, useTheme, useMediaQuery } from "@mui/material";
+import { Tabs, Tab, Box, Button, IconButton, Tooltip, useTheme, useMediaQuery } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 
 const categories = ["Test Papers", "Notes", "Videos", "Tutorial Sheets"];
@@ -7,14 +7,40 @@ export default function CategoryTabs({ selectedCategory, setSelectedCategory, on
   const theme = useTheme();
   const isXs = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // Phones: four squeezed tabs overlap, so show a 2x2 grid of buttons instead
+  if (isXs) {
+    return (
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+          {categories.map((cat) => (
+            <Button
+              key={cat}
+              variant={cat === selectedCategory ? "contained" : "outlined"}
+              onClick={() => setSelectedCategory(cat)}
+              aria-pressed={cat === selectedCategory}
+              sx={{ textTransform: "none", minHeight: 44 }}
+            >
+              {cat}
+            </Button>
+          ))}
+        </Box>
+        <Button
+          fullWidth
+          startIcon={<AddIcon />}
+          onClick={() => onAddCategory(selectedCategory)}
+          sx={{ mt: 1, textTransform: "none", minHeight: 44 }}
+        >
+          Add new {selectedCategory}
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
       <Tabs
         value={selectedCategory}
         onChange={(e, v) => setSelectedCategory(v)}
-        variant={isXs ? "scrollable" : "standard"}
-        scrollButtons={isXs ? "auto" : false}
-        allowScrollButtonsMobile
         sx={{
           flexGrow: 1,
           "& .MuiTab-root": {

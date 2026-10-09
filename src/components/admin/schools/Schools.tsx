@@ -155,7 +155,7 @@ export default function Schools() {
 
   return (
     <ProtectedRoutes allowedRoles={["admin"]}>
-      <Box sx={{ p: isXs ? 2 : 4 }}>
+      <Box sx={{ p: { xs: 0, sm: 2, md: 4 } }}>
         <Paper
           elevation={3}
           sx={{

@@ -38,8 +38,11 @@ const MainWrapper: React.FC<MainWrapperProps> = ({ children }) => {
           component="main"
           sx={{
             flexGrow: 1,
-            width: "100%",
-            px: { xs: 1.5, sm: 2 },
+            // The sidebar is position:fixed, so subtract it instead of adding
+            // a margin to a 100%-wide box (which overflowed by 250px)
+            width: isDesktop ? `calc(100% - ${DRAWER_WIDTH}px)` : "100%",
+            minWidth: 0, // let wide children shrink/wrap instead of widening the page
+            px: { xs: 1, sm: 2 },
             py: 2,
 
             /* ✅ desktop-only offset */

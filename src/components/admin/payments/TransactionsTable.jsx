@@ -159,14 +159,19 @@ export default function TransactionsTable() {
                   <Divider sx={{ mb: 1 }} />
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                     <Box>
-                      <Typography variant="body2" color="text.secondary">User: {row.user_id}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+                        {/* user_id is the internal key; show the name and 7-digit student ID */}
+                        User: {row.u_user_id
+                          ? `${[row.user_name, row.user_last_name].filter(Boolean).join(" ")} (${row.u_user_id})`
+                          : row.user_id}
+                      </Typography>
                       <Typography variant="body1" fontWeight="bold">K {row.amount}</Typography>
                     </Box>
                     <Typography 
                       variant="body2" 
                       sx={{ 
                         textTransform: "capitalize", 
-                        color: row.payment_status === "completed" ? "success.main" : "warning.main" 
+                        color: ["success", "completed"].includes(row.payment_status) ? "success.main" : "warning.main" 
                       }}
                     >
                       {row.payment_status}

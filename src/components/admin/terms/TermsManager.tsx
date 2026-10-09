@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import {
   Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, IconButton, Snackbar, Alert, CircularProgress,
-  Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, MenuItem
+  Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, MenuItem,
+  useMediaQuery
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
 
@@ -20,7 +22,25 @@ const termLabels: Record<number, string> = {
   3: "Term Three"
 };
 
+// DATE columns arrive as ISO timestamps ("2026-09-08T22:00:00.000Z" = 9 Sep in Zambia)
+const formatDate = (value: string) => {
+  const d = new Date(value);
+  return isNaN(d.getTime())
+    ? value || "-"
+    : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+// <input type="date"> needs YYYY-MM-DD in local time
+const toInputDate = (value: string) => {
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value || "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 export default function TermsManager() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const axiosInstance = useAxiosInstance()();
   const [terms, setTerms] = useState<Term[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,8 +64,8 @@ export default function TermsManager() {
     if (term) {
       setTermForm({
         term_number: String(term.term_number),
-        start_date: term.start_date,
-        end_date: term.end_date
+        start_date: toInputDate(term.start_date),
+        end_date: toInputDate(term.end_date)
       });
       setEditTermId(term.id);
     } else {
@@ -120,13 +140,15 @@ export default function TermsManager() {
   };
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom>Terms Manager</Typography>
+    <Box sx={{ p: { xs: 0, sm: 2, md: 4 } }}>
+      <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: "1.4rem", sm: "2rem" } }}>
+        Terms Manager
+      </Typography>
 
       <Button
         variant="contained"
         startIcon={<AddIcon />}
-        sx={{ mb: 2 }}
+        sx={{ mb: 2, width: { xs: "100%", sm: "auto" } }}
         onClick={() => handleOpenDialog()}
         disabled={terms.length >= 3 || loading}
       >
@@ -135,37 +157,63 @@ export default function TermsManager() {
 
       {loading && <CircularProgress sx={{ display: "block", mb: 2 }} />}
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Term</TableCell>
-              <TableCell>Start Date</TableCell>
-              <TableCell>End Date</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {terms.map(t => (
-              <TableRow key={t.id}>
-                <TableCell>{termLabels[t.term_number]}</TableCell>
-                <TableCell>{t.start_date}</TableCell>
-                <TableCell>{t.end_date}</TableCell>
-                <TableCell align="right">
-                  <Stack direction="row" spacing={1}>
-                    <IconButton onClick={() => handleOpenDialog(t)} disabled={loading}>
-                      <EditIcon color="info" />
-                    </IconButton>
-                    <IconButton onClick={() => handleDeleteTerm(t.id)} disabled={loading}>
-                      <DeleteIcon color="error" />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
+      {isMobile ? (
+        // Phones: one card per term instead of a table that scrolls sideways
+        <Stack spacing={1.5}>
+          {terms.map(t => (
+            <Paper key={t.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography fontWeight={700}>{termLabels[t.term_number]}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {formatDate(t.start_date)} – {formatDate(t.end_date)}
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                  <IconButton onClick={() => handleOpenDialog(t)} disabled={loading} aria-label="Edit term">
+                    <EditIcon color="info" />
+                  </IconButton>
+                  <IconButton onClick={() => handleDeleteTerm(t.id)} disabled={loading} aria-label="Delete term">
+                    <DeleteIcon color="error" />
+                  </IconButton>
+                </Stack>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Term</TableCell>
+                <TableCell>Start Date</TableCell>
+                <TableCell>End Date</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {terms.map(t => (
+                <TableRow key={t.id}>
+                  <TableCell>{termLabels[t.term_number]}</TableCell>
+                  <TableCell>{formatDate(t.start_date)}</TableCell>
+                  <TableCell>{formatDate(t.end_date)}</TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1}>
+                      <IconButton onClick={() => handleOpenDialog(t)} disabled={loading}>
+                        <EditIcon color="info" />
+                      </IconButton>
+                      <IconButton onClick={() => handleDeleteTerm(t.id)} disabled={loading}>
+                        <DeleteIcon color="error" />
+                      </IconButton>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog}>

@@ -13,20 +13,22 @@ const PanelLayout = () => {
           component="main"
           sx={{
             flex: 1,
+            minWidth: 0, // a wide table or filter row must not widen the whole frame
             display: "flex",
             flexDirection: "column",
             alignItems: "center", // center the frame
-            py: 3,
-            px: { xs: 0, sm: 0, md: 0},
+            py: { xs: 1.5, sm: 3 },
+            px: 0,
           }}
         >
-          <Container maxWidth="lg">
+          <Container maxWidth="lg" sx={{ px: { xs: 0, sm: 2 } }}>
             <Paper
               elevation={0} // flat, not raised
               sx={{
                 bgcolor: "#fff",
                 borderRadius: 3,
-                p: { xs: 3, sm: 4, md: 6 },
+                p: { xs: 2, sm: 4, md: 6 },
+                minWidth: 0,
                 minHeight: "70vh",
                 border: "1px solid #ddd", // subtle frame effect
               }}

@@ -26,12 +26,18 @@ export default function TopicItem({
   const showSubtopics = selectedCategory === "Notes" || selectedCategory === "Videos";
 
   return (
-    <Box sx={{ mb: 3, p: 2, border: "1px solid #ccc", borderRadius: 2 }}>
-      {/* TOPIC HEADER */}
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">{topic.topic_title}</Typography>
+    <Box sx={{ mb: 3, p: { xs: 1.5, sm: 2 }, border: "1px solid #ccc", borderRadius: 2 }}>
+      {/* TOPIC HEADER: title above the actions on phones */}
+      <Box
+        display="flex"
+        flexDirection={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        gap={0.5}
+      >
+        <Typography variant="h6" sx={{ wordBreak: "break-word", minWidth: 0 }}>{topic.topic_title}</Typography>
 
-        <Box>
+        <Box sx={{ display: "flex", flexWrap: "wrap", ml: { xs: -1, sm: 0 } }}>
           <Button size="small" onClick={() => onEditTopic(topic)}>Edit</Button>
           <Button size="small" color="error" onClick={() => onDeleteTopic(topic)}>Delete</Button>
           <Button size="small" onClick={() => onAddSubtopic(topic)}>Add Subtopic</Button>

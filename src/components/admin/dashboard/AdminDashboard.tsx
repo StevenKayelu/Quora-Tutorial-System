@@ -58,7 +58,7 @@ const AdminDashboard = () => {
         <title>Admin Dashboard | {systemInfo?.system_name || "System"}</title>
       </Helmet>
 
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 0, sm: 3 } }}>
         <Paper
           elevation={3}
           sx={{

@@ -266,36 +266,20 @@ export default function Courses() {
     return `ZMW ${Number(amount).toFixed(2)}`;
   }
 
+  // Long school names wrap inside the chip instead of being cut to "S…"
+  const chipWrap = { height: "auto", maxWidth: "100%", "& .MuiChip-label": { whiteSpace: "normal", py: 0.25 } };
+
   // Render courses
   const renderCourses = () =>
     filteredCourses.map((c) => (
-      <Paper key={c.id} sx={{ mb: 2, p: 2, borderLeft: `5px solid #1976d2`, backgroundColor: "#e3f2fd" }}>
+      <Paper key={c.id} sx={{ mb: 2, p: { xs: 1, sm: 2 }, borderLeft: `5px solid #1976d2`, backgroundColor: "#e3f2fd" }}>
         {/* Clicking the course opens its topics (course pre-selected); the arrow shows details */}
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer", p: 1 }} onClick={() => navigate(`/admin/topics?course_id=${c.id}`)}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer", p: { xs: 0.5, sm: 1 } }} onClick={() => navigate(`/admin/topics?course_id=${c.id}`)}>
           <IconButton size="small" aria-label="Show details" onClick={(e) => { e.stopPropagation(); toggleCourse(c.id); }}>
             {openCourses[c.id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="h6">{c.course_name}</Typography>
-            {(c.shared_school_ids || []).length > 0 && (
-              <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
-                <Chip size="small" label={`Main: ${schools.find((s) => s.id === c.school_id)?.school_name || "Unknown"}`} color="primary" />
-                {c.shared_school_ids.map((sid) => (
-                  <Chip
-                    key={sid}
-                    size="small"
-                    variant="outlined"
-                    label={`Shared: ${schools.find((s) => s.id === sid)?.school_name || "Unknown"}`}
-                    onClick={(e) => e.stopPropagation()}
-                    onDelete={(e) => {
-                      e.stopPropagation();
-                      setUnassignTarget({ course: c, schoolId: sid });
-                    }}
-                    title="Remove from this school"
-                  />
-                ))}
-              </Stack>
-            )}
+            <Typography variant="h6" sx={{ wordBreak: "break-word", fontSize: { xs: "1.05rem", sm: "1.25rem" } }}>{c.course_name}</Typography>
           </Box>
           <Button
             size="small"
@@ -309,6 +293,26 @@ export default function Courses() {
           <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); openEditDialog(c); }}><EditIcon /></IconButton>
           <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); openDeleteDialog(c); }}><DeleteIcon /></IconButton>
         </Stack>
+        {(c.shared_school_ids || []).length > 0 && (
+          <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.5, pl: { xs: 0.5, sm: 6 }, pb: 0.5 }}>
+            <Chip size="small" sx={chipWrap} label={`Main: ${schools.find((s) => s.id === c.school_id)?.school_name || "Unknown"}`} color="primary" />
+            {c.shared_school_ids.map((sid) => (
+              <Chip
+                key={sid}
+                size="small"
+                sx={chipWrap}
+                variant="outlined"
+                label={`Shared: ${schools.find((s) => s.id === sid)?.school_name || "Unknown"}`}
+                onClick={(e) => e.stopPropagation()}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  setUnassignTarget({ course: c, schoolId: sid });
+                }}
+                title="Remove from this school"
+              />
+            ))}
+          </Stack>
+        )}
         <Collapse in={openCourses[c.id]} timeout="auto" unmountOnExit>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 4 }}>{c.course_description || "No description"}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 4, fontStyle: "italic" }}>
@@ -323,7 +327,7 @@ export default function Courses() {
 
    return (
     <ProtectedRoutes allowedRoles={["admin"]}>
-      <Box sx={{ p: isXs ? 2 : 4 }}>
+      <Box sx={{ p: { xs: 0, sm: 2, md: 4 } }}>
          <Paper
              elevation={3}
                   sx={{
@@ -339,8 +343,9 @@ export default function Courses() {
                   </Typography>
           </Paper>
 
-        <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
-          <Stack direction={isXs ? "column" : "row"} spacing={2} alignItems={isXs ? "stretch" : "center"} justifyContent="space-between">
+        <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, sm: 4 }, borderRadius: 2 }}>
+          {/* One row only on wide screens; stacked below that so nothing gets squeezed */}
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
             <TextField
               select
               size="small"
@@ -361,6 +366,7 @@ export default function Courses() {
               fullWidth
               size="small"
               label="Search Courses"
+              sx={{ minWidth: { md: 180 } }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
@@ -376,11 +382,11 @@ export default function Courses() {
               variant="outlined"
               startIcon={<AssignIcon />}
               onClick={openAssignDialog}
-              sx={{ mt: isXs ? 2 : 0, whiteSpace: "nowrap", flexShrink: 0 }}
+              sx={{ whiteSpace: { xs: "normal", sm: "nowrap" }, flexShrink: 0 }}
             >
               Assign Existing Courses
             </Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ mt: isXs ? 2 : 0, whiteSpace: "nowrap", flexShrink: 0 }}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ whiteSpace: "nowrap", flexShrink: 0 }}>
               Add Course
             </Button>
           </Stack>

@@ -193,9 +193,15 @@ const Contact: React.FC<ContactProps> = ({ apiBase, showSnack }) => {
   ======================= */
   return (
     <>
-      <Stack direction="row" justifyContent="space-between" mb={2}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "stretch", sm: "center" }}
+        spacing={1.5}
+        mb={2}
+      >
         <Typography variant="h6">Contact Information</Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button variant="contained" startIcon={<Edit />} onClick={() => setContactDialogOpen(true)}>
             {contactInfo ? "Edit" : "Create"}
           </Button>
@@ -224,8 +230,7 @@ const Contact: React.FC<ContactProps> = ({ apiBase, showSnack }) => {
               <video
                 src={contactInfo.contact_video_url}
                 controls
-                width={320}
-                style={{ borderRadius: 8 }}
+                style={{ borderRadius: 8, width: "100%", maxWidth: 320, display: "block" }}
               />
             </Box>
           )}
@@ -270,8 +275,7 @@ const Contact: React.FC<ContactProps> = ({ apiBase, showSnack }) => {
               <video
                 src={URL.createObjectURL(contactVideo)}
                 controls
-                width={260}
-                style={{ borderRadius: 8 }}
+                style={{ borderRadius: 8, width: "100%", maxWidth: 260, display: "block" }}
               />
             )}
 

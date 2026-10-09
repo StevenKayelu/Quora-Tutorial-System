@@ -5,14 +5,8 @@ import {
   Typography,
   Paper,
   Button,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
   CircularProgress,
-  Badge,
-  IconButton,
-  Drawer,
+  Alert,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -23,7 +17,6 @@ import {
   CardActions,
   CardActionArea,
 } from "@mui/material";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SearchIcon from "@mui/icons-material/Search";
@@ -33,11 +26,9 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import { useMediaQuery } from "@mui/material";
 import { useAuthContext } from "../../../utils/hooks/useCustomContext";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
 import ProtectedRoutes from "../../ProtectedRoutes";
-import { RecentUpdates } from "../shared/Notifications";
 import FreeToExplore from "../shared/FreeToExplore";
 
 const USER_ACTIONS = [
@@ -60,7 +51,6 @@ const UserDashboard = () => {
   const axiosInstance = useAxiosInstance()();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const API_SUBSCRIPTIONS = `${API_BASE}/api/subscriptions/users`;
@@ -70,7 +60,6 @@ const UserDashboard = () => {
   const [systemInfo, setSystemInfo] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [notifOpen, setNotifOpen] = useState(false);
 
   // FETCH USER + SYSTEM + SUBSCRIPTIONS
   const fetchAll = async () => {
@@ -166,19 +155,20 @@ const UserDashboard = () => {
 
         const diffDays = Math.ceil((Number(expiry) - Number(today)) / (1000 * 60 * 60 * 24));
         const term = sub.term;
-        const course = sub.course;
+        const termNumber = term?.term_number ?? sub.term_number;
+        const courseName = sub.course?.course_name ?? sub.course_title;
 
         if (diffDays <= 5 && diffDays > 0) {
           notifications.push({
             type: "warning",
-            message: `⏳ Term ${term?.term_number} (${course?.course_name}) ends in ${diffDays} day(s).`,
+            message: `⏳ Term ${termNumber} (${courseName}) ends in ${diffDays} day(s).`,
           });
         }
 
         if (diffDays <= 0) {
           notifications.push({
             type: "error",
-            message: `❌ Term ${term?.term_number} (${course?.course_name}) has expired.`,
+            message: `❌ Term ${termNumber} (${courseName}) has expired.`,
           });
         }
 
@@ -190,7 +180,7 @@ const UserDashboard = () => {
           if (daysToNext <= 7 && daysToNext > 0) {
             notifications.push({
               type: "info",
-              message: `📢 Term ${term.next_term.term_number} (${course?.course_name}) starts in ${daysToNext} days. Subscribe now.`,
+              message: `📢 Term ${term.next_term.term_number} (${courseName}) starts in ${daysToNext} days. Subscribe now.`,
             });
           }
         }
@@ -238,40 +228,43 @@ const UserDashboard = () => {
             mb: { xs: 2.5, sm: 3 },
           }}
         >
-          <Stack direction="row" spacing={1} alignItems="flex-start" justifyContent="space-between">
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                component="h1"
-                sx={{ fontSize: { xs: "1.3rem", sm: "1.6rem", md: "1.85rem" }, fontWeight: 700, lineHeight: 1.25, ...wrapText }}
-              >
-                Welcome back{user?.firstName ? `, ${user.firstName}` : ""} 👋
-              </Typography>
-              <Typography sx={{ mt: 0.75, fontSize: { xs: "0.9rem", sm: "1rem" }, maxWidth: 560 }}>
-                Continue your learning journey or explore courses available to you.
-              </Typography>
-            </Box>
-
-            <IconButton
-              onClick={() => setNotifOpen(true)}
-              aria-label={`Notifications (${notifications.length})`}
-              sx={{
-                color: "inherit",
-                flexShrink: 0,
-                width: 48,
-                height: 48,
-                bgcolor: "rgba(255,255,255,0.18)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.28)" },
-              }}
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              component="h1"
+              sx={{ fontSize: { xs: "1.3rem", sm: "1.6rem", md: "1.85rem" }, fontWeight: 700, lineHeight: 1.25, ...wrapText }}
             >
-              <Badge badgeContent={notifications.length} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Stack>
+              Welcome back{user?.firstName ? `, ${user.firstName}` : ""} 👋
+            </Typography>
+            <Typography sx={{ mt: 0.75, fontSize: { xs: "0.9rem", sm: "1rem" }, maxWidth: 560 }}>
+              Continue your learning journey or explore courses available to you.
+            </Typography>
+          </Box>
         </Paper>
 
-        {/* ================= RECENT UPDATES (upload notifications) ================= */}
-        <RecentUpdates limit={5} />
+        {/* ================= TERM ALERTS (ending / expired / next term) ================= */}
+        {notifications.length > 0 && (
+          <Stack spacing={1.5} sx={{ mb: { xs: 2.5, sm: 3 } }}>
+            {notifications.map((n, i) => (
+              <Alert
+                key={i}
+                severity={n.type}
+                sx={{ borderRadius: 2, alignItems: "flex-start", "& .MuiAlert-message": { width: "100%", minWidth: 0 } }}
+              >
+                <Typography variant="body2" sx={wrapText}>
+                  {n.message}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => navigate("/user/courses")}
+                  sx={{ mt: 1, width: { xs: "100%", sm: "auto" }, minHeight: 40, textTransform: "none" }}
+                >
+                  Subscribe
+                </Button>
+              </Alert>
+            ))}
+          </Stack>
+        )}
 
         {/* ================= QUICK ACTIONS ================= */}
         <Box
@@ -326,61 +319,6 @@ const UserDashboard = () => {
         {/* ================= FREE TO EXPLORE (free lessons) ================= */}
         <FreeToExplore />
 
-        {/* ================= NOTIFICATION DRAWER ================= */}
-        <Drawer
-          anchor={isMobile ? "bottom" : "right"}
-          open={notifOpen}
-          onClose={() => setNotifOpen(false)}
-          PaperProps={{
-            sx: isMobile
-              ? { borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "80vh" }
-              : {},
-          }}
-        >
-          <Box sx={{ width: isMobile ? "100vw" : 350, maxWidth: "100vw", p: 2, boxSizing: "border-box" }}>
-            <Typography variant="h6" mb={2}>
-              Notifications
-            </Typography>
-            <Divider />
-            <List>
-              {notifications.length === 0 ? (
-                <ListItem>
-                  <ListItemText primary="No notifications yet." />
-                </ListItem>
-              ) : (
-                notifications.map((n, i) => (
-                  <ListItem
-                    key={i}
-                    sx={{
-                      borderLeft: `4px solid ${
-                        n.type === "error"
-                          ? "#f44336"
-                          : n.type === "warning"
-                          ? "#ff9800"
-                          : "#2196f3"
-                      }`,
-                      mb: 1,
-                      borderRadius: 1,
-                      flexDirection: "column",
-                      alignItems: "stretch",
-                      gap: 1,
-                    }}
-                  >
-                    <ListItemText primary={n.message} sx={{ m: 0, ...wrapText }} />
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => navigate("/user/courses")}
-                      sx={{ alignSelf: { xs: "stretch", sm: "flex-start" }, minHeight: 40, textTransform: "none" }}
-                    >
-                      Subscribe
-                    </Button>
-                  </ListItem>
-                ))
-              )}
-            </List>
-          </Box>
-        </Drawer>
       </Box>
     </ProtectedRoutes>
   );

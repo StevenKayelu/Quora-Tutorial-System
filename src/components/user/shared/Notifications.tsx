@@ -1,4 +1,4 @@
-// In-app upload notifications: shared hook, top-bar bell and dashboard card.
+// In-app upload notifications: shared hook and the top-bar bell.
 // Clicking one opens My Courses at the exact item (see MyCourses deep link).
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -8,7 +8,6 @@ import {
   CircularProgress,
   Divider,
   IconButton,
-  Paper,
   Popover,
   Stack,
   Tooltip,
@@ -285,57 +284,5 @@ export const NotificationBell = () => {
         )}
       </Popover>
     </>
-  );
-};
-
-/* ================= DASHBOARD CARD ================= */
-
-export const RecentUpdates = ({ limit = 5 }: { limit?: number }) => {
-  const { items, unread, loading, open, markAllRead } = useNotifications(limit);
-
-  // Stay out of the way until there is something to show
-  if (loading || items.length === 0) return null;
-
-  return (
-    <Paper elevation={2} sx={{ borderRadius: 3, overflow: "hidden", mb: { xs: 3, sm: 4 } }}>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ px: 2, py: 1.5, background: "linear-gradient(135deg, #e3f2fd, #ffffff)" }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <BellIcon color="primary" />
-          <Typography fontWeight={700}>Recent updates</Typography>
-          {unread > 0 && (
-            <Box
-              sx={{
-                px: 1,
-                borderRadius: 5,
-                bgcolor: "#d32f2f",
-                color: "#fff",
-                fontSize: 12,
-                fontWeight: 700,
-                lineHeight: "20px",
-              }}
-            >
-              {unread} new
-            </Box>
-          )}
-        </Stack>
-        {unread > 0 && (
-          <Button size="small" startIcon={<DoneAllIcon />} onClick={markAllRead} sx={{ textTransform: "none" }}>
-            Mark all read
-          </Button>
-        )}
-      </Stack>
-      <Divider />
-      {items.map((n, i) => (
-        <React.Fragment key={n.id}>
-          {i > 0 && <Divider />}
-          <NotificationRow n={n} onClick={() => open(n)} />
-        </React.Fragment>
-      ))}
-    </Paper>
   );
 };
