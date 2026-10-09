@@ -1,5 +1,5 @@
 import { Box, Typography, Divider, Button } from "@mui/material";
-import SubtopicMaterials from "./SubtopicMaterials.tsx";
+import SubtopicMaterials from "./SubtopicMaterials";
 
 export default function TopicItem({
   topic,

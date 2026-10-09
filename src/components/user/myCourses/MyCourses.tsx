@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   Chip,
@@ -8,25 +8,30 @@ import {
   Button,
   Tooltip,
   Stack,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Snackbar,
   Alert,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
 import {
   ArrowBack,
   ChevronRight,
   School as SchoolIcon,
-  Preview as PreviewIcon,
-  Download as DownloadIcon,
 } from "@mui/icons-material";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
+import {
+  ContentCategoryCards,
+  CATEGORY_META,
+  VideoCard,
+  DocumentCard,
+  TopicHeading,
+  SubtopicHeading,
+  LayoutToggle,
+  VideoPlayerDialog,
+  DocumentViewerDialog,
+  contentGridSx,
+  useContentLayout,
+  getYouTubeId,
+  PlayingVideo,
+} from "../shared/CourseContentUI";
 import { useSystemInfo } from "../../../contexts/SystemInfoContext";
 import { useLocation } from "react-router-dom";
 
@@ -35,8 +40,6 @@ export default function MyCourses() {
   const { systemInfo } = useSystemInfo();
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // Data
   const [schools, setSchools] = useState([]);
@@ -48,8 +51,10 @@ export default function MyCourses() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedTerm, setSelectedTerm] = useState(null);
 
-  const [contentFilter, setContentFilter] = useState("materials");
-  // "tests" | "tutorials" | "materials"
+  // null = show the category cards; otherwise the selected category
+  const [contentFilter, setContentFilter] = useState<
+    null | "videos" | "notes" | "tests" | "tutorials"
+  >(null);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -64,7 +69,11 @@ export default function MyCourses() {
   }>({ open: false, severity: "info", message: "" });
   const [downloadingId, setDownloadingId] = useState(null);
   const [previewTitle, setPreviewTitle] = useState("");
-  const [isVideoPreview, setIsVideoPreview] = useState(false);
+  // Video currently open in the in-app player (null = closed)
+  const [playingVideo, setPlayingVideo] = useState<PlayingVideo | null>(null);
+  // Item shown in the document viewer (so it can be downloaded from there)
+  const [previewItem, setPreviewItem] = useState(null);
+  const { layout, setLayout, isLarge } = useContentLayout();
 
   const location = useLocation();
   const today = new Date();
@@ -189,6 +198,68 @@ export default function MyCourses() {
     }
   }, [location.state]);
 
+  // ---- Deep link from a notification: term → category → highlighted item ----
+  const pendingDeepLink = useRef<{
+    courseId: number;
+    termId: number;
+    category: "videos" | "notes" | "tests" | "tutorials";
+    itemId: number;
+  } | null>(null);
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const st = location.state;
+    if (st?.courseId && st?.termId && st?.category) {
+      pendingDeepLink.current = {
+        courseId: Number(st.courseId),
+        termId: Number(st.termId),
+        category: st.category,
+        itemId: Number(st.itemId),
+      };
+      setSelectedTerm(null);
+      setContentFilter(null);
+    }
+  }, [location.state]);
+
+  // Runs once the linked course and its structure have loaded
+  useEffect(() => {
+    const link = pendingDeepLink.current;
+    if (!link || !selectedCourse || Number(selectedCourse.id) !== link.courseId) return;
+    const courseTerms = structures[selectedCourse.id];
+    if (!courseTerms) return;
+    pendingDeepLink.current = null;
+
+    const term = courseTerms.find((t) => Number(t.id) === link.termId);
+    if (!term) {
+      showSnack("info", "That item is no longer available.");
+      return;
+    }
+    if (!isTermUnlocked(term, selectedCourse)) {
+      showSnack("info", "This term isn't available on your subscription yet.");
+      return;
+    }
+    setSelectedTerm(term);
+    setContentFilter(link.category);
+    setHighlightKey(`${link.category}-${link.itemId}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourse, structures]);
+
+  // Scroll the highlighted item into view, then let the highlight fade
+  useEffect(() => {
+    if (!highlightKey) return;
+    const scroll = setTimeout(() => {
+      const el = document.getElementById(`content-item-${highlightKey}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      else showSnack("info", "That item is no longer available.");
+    }, 350);
+    const clear = setTimeout(() => setHighlightKey(null), 6000);
+    return () => {
+      clearTimeout(scroll);
+      clearTimeout(clear);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightKey]);
+
   useEffect(() => {
     let mounted = true;
     if (mounted) fetchSchools();
@@ -213,7 +284,10 @@ export default function MyCourses() {
       }
     } catch (err) {
       console.error(err);
-      showSnack("error", "Failed to fetch subscribed schools");
+      showSnack(
+        "error",
+        err?.response?.data?.message || "Failed to fetch subscribed schools"
+      );
     } finally {
       setLoading(false);
     }
@@ -296,13 +370,14 @@ export default function MyCourses() {
 
   const handleSelectTerm = (term) => {
     setSelectedTerm(term);
-    setContentFilter("materials");
+    setContentFilter(null);
   };
 
   const handleBack = (level) => {
     if (level === "school") setSelectedSchool(null);
     if (level === "course") setSelectedCourse(null);
     if (level === "term") setSelectedTerm(null);
+    if (level === "content") setContentFilter(null);
   };
 
   const toggleSubtopic = (subId) => {
@@ -313,14 +388,6 @@ export default function MyCourses() {
     severity: "success" | "error" | "info" | "warning",
     message: string
   ) => setSnack({ open: true, severity, message });
-
-  const getYouTubeId = (url) => {
-    if (!url) return null;
-    const regex =
-      /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-  };
 
   //=======DOWNLOAD FUNCTION =======//
   const handleDownload = async (material) => {
@@ -399,6 +466,46 @@ export default function MyCourses() {
     );
   })();
 
+  // Topics of the selected term, keeping only subtopics that have materials
+  // of the given type (video | note). Notes need a file to preview/download.
+  const getTopicsWithMaterials = (type) =>
+    (selectedTerm?.topics || [])
+      .map((topic) => ({
+        ...topic,
+        subtopics: (topic.subtopics || [])
+          .map((sub) => ({
+            ...sub,
+            materials: (sub.materials || []).filter(
+              (m) =>
+                m.material_type === type && (type !== "note" || m.file_url)
+            ),
+          }))
+          .filter((sub) => sub.materials.length > 0),
+      }))
+      .filter((topic) => topic.subtopics.length > 0);
+
+  const videoTopics = getTopicsWithMaterials("video");
+  const noteTopics = getTopicsWithMaterials("note");
+
+  const countMaterials = (topics) =>
+    topics.reduce(
+      (sum, t) =>
+        sum + t.subtopics.reduce((s2, sub) => s2 + sub.materials.length, 0),
+      0
+    );
+
+  const categoryItems = [
+    { key: "videos" as const, count: countMaterials(videoTopics) },
+    { key: "notes" as const, count: countMaterials(noteTopics) },
+    { key: "tests" as const, count: filteredTests.length },
+    {
+      key: "tutorials" as const,
+      count: (selectedTerm?.tutorial_sheets || []).length,
+    },
+  ];
+
+  const activeCategory = contentFilter ? CATEGORY_META[contentFilter] : null;
+
   // ====================================================================
   // PRESENTATION
   // ====================================================================
@@ -422,19 +529,7 @@ export default function MyCourses() {
     "&:focus-visible": { outline: "2px solid #1976d2", outlineOffset: 2 },
   };
 
-  const topicStyle = {
-    p: { xs: 1.5, sm: 2 },
-    mb: 2,
-    borderRadius: 2,
-    bgcolor: "#e3f2fd",
-  };
 
-  const subtopicStyle = {
-    pl: 2,
-    bgcolor: "#f5f7ff",
-    borderRadius: 1,
-    p: 1,
-  };
 
   const cardGrid = {
     display: "grid",
@@ -455,12 +550,6 @@ export default function MyCourses() {
     fontSize: "0.95rem",
   };
 
-  const actionBtnStyle = {
-    flex: { xs: 1, sm: "0 0 auto" },
-    minHeight: 44,
-    textTransform: "none",
-    fontWeight: 600,
-  };
 
   const wrapText = { wordBreak: "break-word", overflowWrap: "anywhere" };
 
@@ -540,146 +629,102 @@ export default function MyCourses() {
     </Box>
   );
 
-  // Preview + Download buttons shared by notes, tests and tutorial sheets
-  const renderFileActions = (item) => (
-    <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-      <Button
-        variant="outlined"
-        startIcon={<PreviewIcon />}
-        onClick={() => handlePreview(item)}
-        sx={actionBtnStyle}
-      >
-        Preview
-      </Button>
-      <Button
-        variant="contained"
-        disableElevation
-        startIcon={
-          downloadingId === item.id ? (
-            <CircularProgress size={18} color="inherit" />
-          ) : (
-            <DownloadIcon />
-          )
-        }
-        onClick={() => handleDownload(item)}
-        disabled={downloadingId === item.id}
-        sx={actionBtnStyle}
-      >
-        Download
-      </Button>
-    </Stack>
-  );
+  const openPreview = (item) => {
+    setPreviewItem(item);
+    handlePreview(item);
+  };
 
-  const renderTermTests = (tests = []) => (
-    <Box>
-      <Typography fontWeight={600} sx={{ mb: 1.5 }}>
-        📘 Test Papers
-      </Typography>
+  const playVideo = (m, topicTitle) => {
+    const ytId = getYouTubeId(m.video_url);
+    if (ytId) {
+      setPlayingVideo({
+        ytId,
+        title: m.title,
+        description: m.description,
+        topic: topicTitle,
+      });
+    } else if (m.video_url) {
+      window.open(m.video_url, "_blank", "noopener");
+    } else {
+      showSnack("info", "This video link is not available yet.");
+    }
+  };
 
-      {tests.length === 0 ? (
-        renderEmpty("Nothing available for this selection yet.")
-      ) : (
-        <Box sx={cardGrid}>
-          {tests.map((t) => (
-            <Paper key={t.id} sx={{ p: 2, borderRadius: 2, minWidth: 0 }}>
-              <Typography fontWeight={600} sx={wrapText}>
-                {t.title}
-              </Typography>
-              {renderFileActions(t)}
-            </Paper>
-          ))}
-        </Box>
-      )}
-    </Box>
-  );
+  // Documents (tests / tutorial sheets / notes) as preview+download cards
+  const renderDocuments = (items, kind, emptyText) =>
+    items.length === 0 ? (
+      renderEmpty(emptyText)
+    ) : (
+      <Box sx={contentGridSx(layout)}>
+        {items.map((item) => (
+          <DocumentCard
+            key={item.id}
+            domId={`content-item-${kind}-${item.id}`}
+            highlighted={highlightKey === `${kind}-${item.id}`}
+            title={item.title}
+            description={item.description}
+            kind={kind}
+            layout={layout}
+            downloading={downloadingId === item.id}
+            onPreview={() => openPreview(item)}
+            onDownload={() => handleDownload(item)}
+          />
+        ))}
+      </Box>
+    );
 
-  const renderTutorialSheets = (sheets = []) => (
-    <Box>
-      <Typography fontWeight={600} sx={{ mb: 1.5 }}>
-        📄 Tutorial Sheets
-      </Typography>
+  // Videos / notes grouped by topic → subtopic (only non-empty groups)
+  const renderTopicGroups = (topics, kind, emptyText) => {
+    if (topics.length === 0) return renderEmpty(emptyText);
+    const meta = CATEGORY_META[kind];
 
-      {sheets.length === 0 ? (
-        renderEmpty("No tutorial sheets available.")
-      ) : (
-        <Box sx={cardGrid}>
-          {sheets.map((s) => (
-            <Paper key={s.id} sx={{ p: 2, borderRadius: 2, minWidth: 0 }}>
-              <Typography fontWeight={600} sx={wrapText}>
-                {s.title}
-              </Typography>
-              {renderFileActions(s)}
-            </Paper>
-          ))}
-        </Box>
-      )}
-    </Box>
-  );
+    return topics.map((topic) => (
+      <Box key={topic.id} sx={{ mb: 3.5 }}>
+        <TopicHeading title={topic.topic_title} color={meta.color} />
 
-  const renderMaterials = (materials = []) => {
-    if (!materials.length)
-      return (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ fontStyle: "italic", py: 0.5 }}
-        >
-          No materials available.
-        </Typography>
-      );
+        {topic.subtopics.map((sub) => (
+          <Box key={sub.id} sx={{ mb: 2.5 }}>
+            <SubtopicHeading
+              title={sub.subtopic_title}
+              count={sub.materials.length}
+              noun={kind === "videos" ? ["video", "videos"] : ["note", "notes"]}
+              color={meta.color}
+              bg={meta.bg}
+            />
 
-    return materials.map((m) => {
-      const ytId =
-        m.material_type === "video" ? getYouTubeId(m.video_url) : null;
-
-      return (
-        <Paper
-          key={m.id}
-          elevation={0}
-          sx={{
-            p: 2,
-            mt: 1,
-            borderRadius: 2,
-            bgcolor: "#f5f7ff",
-            minWidth: 0,
-          }}
-        >
-          <Typography fontWeight={600} sx={wrapText}>
-            {m.title}
-          </Typography>
-          {m.description && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mt: 0.5, ...wrapText }}
-            >
-              {m.description}
-            </Typography>
-          )}
-
-          {/* VIDEO */}
-          {ytId && (
-            <Stack direction="row" sx={{ mt: 1.5 }}>
-              <Button
-                variant="contained"
-                disableElevation
-                startIcon={<PreviewIcon />}
-                onClick={() => {
-                  const youtubeUrl = `https://www.youtube.com/watch?v=${ytId}`;
-                  window.open(youtubeUrl, "_blank");
-                }}
-                sx={actionBtnStyle}
-              >
-                Watch Video
-              </Button>
-            </Stack>
-          )}
-
-          {/* NOTE (PDF) */}
-          {m.material_type === "note" && m.file_url && renderFileActions(m)}
-        </Paper>
-      );
-    });
+            <Box sx={contentGridSx(layout)}>
+              {sub.materials.map((m) =>
+                kind === "videos" ? (
+                  <VideoCard
+                    key={m.id}
+                    domId={`content-item-videos-${m.id}`}
+                    highlighted={highlightKey === `videos-${m.id}`}
+                    title={m.title}
+                    description={m.description}
+                    videoUrl={m.video_url}
+                    layout={layout}
+                    onPlay={() => playVideo(m, topic.topic_title)}
+                  />
+                ) : (
+                  <DocumentCard
+                    key={m.id}
+                    domId={`content-item-notes-${m.id}`}
+                    highlighted={highlightKey === `notes-${m.id}`}
+                    title={m.title}
+                    description={m.description}
+                    kind="notes"
+                    layout={layout}
+                    downloading={downloadingId === m.id}
+                    onPreview={() => openPreview(m)}
+                    onDownload={() => handleDownload(m)}
+                  />
+                )
+              )}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    ));
   };
 
   return (
@@ -712,7 +757,7 @@ export default function MyCourses() {
             ...wrapText,
           }}
         >
-          My Courses | {systemInfo?.system_name || "Tutorial System"}
+          My Courses
         </Typography>
 
         <Typography
@@ -1151,8 +1196,8 @@ export default function MyCourses() {
         </Box>
       )}
 
-      {/* ================= LEVEL 4 — CONTENT ================= */}
-      {selectedTerm && (
+      {/* ================= LEVEL 4 — CONTENT CATEGORIES ================= */}
+      {selectedTerm && !contentFilter && (
         <Box>
           <Button
             startIcon={<ArrowBack />}
@@ -1167,125 +1212,83 @@ export default function MyCourses() {
             selectedCourse?.course_name
           )}
 
-          {/* Content type tabs (replaces the dropdown) */}
-          <Paper
-            sx={{
-              mb: 2.5,
-              borderRadius: 2,
-              bgcolor: "#f9fafc",
-              overflow: "hidden",
-            }}
-          >
-            <Tabs
-              value={contentFilter}
-              onChange={(_, value) => setContentFilter(value)}
-              variant="scrollable"
-              scrollButtons="auto"
-              allowScrollButtonsMobile
-              aria-label="Content type"
-              sx={{
-                minHeight: 52,
-                "& .MuiTabs-indicator": { height: 3 },
-              }}
-            >
-              {[
-                { value: "materials", label: "📚 Materials" },
-                { value: "tests", label: "📝 Tests" },
-                { value: "tutorials", label: "📄 Tutorials" },
-              ].map((tab) => (
-                <Tab
-                  key={tab.value}
-                  value={tab.value}
-                  label={tab.label}
-                  sx={{
-                    flex: { sm: 1 },
-                    maxWidth: "none",
-                    minWidth: { xs: 104, sm: 120 },
-                    minHeight: 52,
-                    px: { xs: 1.5, sm: 2 },
-                    textTransform: "none",
-                    fontWeight: 600,
-                    fontSize: { xs: "0.9rem", sm: "0.95rem" },
-                    whiteSpace: "nowrap",
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Paper>
-
-          {/* TEST PAPERS */}
-          {contentFilter === "tests" && renderTermTests(filteredTests)}
-
-          {/* TUTORIAL SHEETS */}
-          {contentFilter === "tutorials" &&
-            renderTutorialSheets(selectedTerm.tutorial_sheets || [])}
-
-          {/* VIDEOS & NOTES */}
-          {contentFilter === "materials" && (
-            <Box>
-              <Typography fontWeight={600} sx={{ mb: 1.5 }}>
-                📚 Learning Materials
-              </Typography>
-
-              {(selectedTerm.topics || []).length === 0 &&
-                renderEmpty("No materials available.")}
-
-              {(selectedTerm.topics || []).map((topic) => (
-                <Paper key={topic.id} sx={topicStyle}>
-                  <Typography fontWeight={700} sx={wrapText}>
-                    {topic.topic_title}
-                  </Typography>
-
-                  {(topic.subtopics || []).map((sub) => (
-                    <Box key={sub.id} sx={{ mt: 1.5 }}>
-                      <Typography fontWeight={500} sx={wrapText}>
-                        {sub.subtopic_title}
-                      </Typography>
-                      {renderMaterials(sub.materials)}
-                    </Box>
-                  ))}
-                </Paper>
-              ))}
-            </Box>
-          )}
+          <ContentCategoryCards
+            items={categoryItems}
+            onSelect={(key) => setContentFilter(key)}
+          />
         </Box>
       )}
 
-      {/* ================= PREVIEW DIALOG ================= */}
-      <Dialog
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-      >
-        <DialogTitle sx={{ fontSize: { xs: "1rem", sm: "1.25rem" }, ...wrapText }}>
-          {previewTitle || "Preview"}
-        </DialogTitle>
-        <DialogContent
-          sx={{
-            display: "flex",
-            height: { sm: "70vh" },
-            p: { xs: 0, sm: 2 },
-          }}
-        >
-          <iframe
-            src={`https://docs.google.com/gview?url=${encodeURIComponent(
-              previewUrl
-            )}&embedded=true`}
-            style={{ flex: 1, width: "100%", minHeight: 0, border: "none" }}
-            title="Preview"
-          />
-        </DialogContent>
-        <DialogActions>
+      {/* ================= LEVEL 5 — CATEGORY CONTENT ================= */}
+      {selectedTerm && activeCategory && (
+        <Box>
           <Button
-            onClick={() => setPreviewOpen(false)}
-            sx={{ minHeight: 44, textTransform: "none", fontWeight: 600 }}
+            startIcon={<ArrowBack />}
+            onClick={() => handleBack("content")}
+            sx={backBtnStyle}
           >
-            Close
+            Back to Term {selectedTerm.term_number}
           </Button>
-        </DialogActions>
-      </Dialog>
+
+          <Stack
+            direction="row"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            spacing={2}
+          >
+            {renderSectionTitle(
+              activeCategory.label,
+              `Term ${selectedTerm.term_number} · ${
+                selectedCourse?.course_name || ""
+              }`
+            )}
+            {isLarge && <LayoutToggle value={layout} onChange={setLayout} />}
+          </Stack>
+
+          {contentFilter === "videos" &&
+            renderTopicGroups(
+              videoTopics,
+              "videos",
+              "No videos available for this term yet."
+            )}
+
+          {contentFilter === "notes" &&
+            renderTopicGroups(
+              noteTopics,
+              "notes",
+              "No notes available for this term yet."
+            )}
+
+          {contentFilter === "tests" &&
+            renderDocuments(
+              filteredTests,
+              "tests",
+              "Nothing available for this selection yet."
+            )}
+
+          {contentFilter === "tutorials" &&
+            renderDocuments(
+              selectedTerm.tutorial_sheets || [],
+              "tutorials",
+              "No tutorial sheets available."
+            )}
+        </Box>
+      )}
+
+      {/* ================= VIDEO PLAYER ================= */}
+      <VideoPlayerDialog
+        video={playingVideo}
+        onClose={() => setPlayingVideo(null)}
+      />
+
+      {/* ================= DOCUMENT VIEWER ================= */}
+      <DocumentViewerDialog
+        open={previewOpen}
+        url={previewUrl}
+        title={previewTitle}
+        onClose={() => setPreviewOpen(false)}
+        onDownload={previewItem ? () => handleDownload(previewItem) : undefined}
+      />
 
       <Snackbar
         open={snack.open}

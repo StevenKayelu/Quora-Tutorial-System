@@ -24,7 +24,9 @@ type AuthContextType = {
   setUser: (u: User | null) => void;
   setAccessToken: (t: string) => void;
   setIsAuth: (auth: boolean) => void;
+  setIsLoading: (loading: boolean) => void;
   logout: (reason?: string) => Promise<void>;
+  login: (token: string, user: User) => void;
   refreshAccessToken: () => Promise<void>;
   notification: NotificationType;
   setNotification: React.Dispatch<React.SetStateAction<NotificationType>>;
@@ -84,6 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     async (reason?: string) => {
       try {
         await fetch(`${API_BASE}/api/auth/logout`, {
+          method: "POST",
           credentials: "include",
         });
       } catch {
@@ -118,6 +121,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  /* ================= LOGIN ================= */
+
+  // Called by the login page after a successful sign-in. Re-arms auto-refresh
+  // (clears the logout lock) and drops any stale "logged out" toast.
+  const login = useCallback(
+    (token: string, newUser: User) => {
+      applyNewToken(token, newUser);
+      setNotification((prev) => ({ ...prev, open: false }));
+    },
+    [applyNewToken]
+  );
+
   /* ================= REFRESH TOKEN ================= */
 
   const refreshAccessToken = useCallback(async () => {
@@ -129,24 +144,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         credentials: "include",
       });
 
-      if (!resp.ok) {
+      if (resp.status === 401 || resp.status === 440) {
         await logout("Session expired — please log in again.");
         return;
       }
+
+      // Server hiccup: keep the current session rather than kicking the user out
+      if (!resp.ok) return;
 
       const headerToken = resp.headers.get("x-access-token");
       const data = await resp.json().catch(() => null);
       const token = headerToken || data?.data?.accessToken;
 
       if (!token) {
-        await logout("Session expired — please log in again.");
+        // No refresh cookie = there was never a session (e.g. first visit).
+        // Clear locally only; no logout call and no "logged out" toast.
+        clearClientSession();
         return;
       }
 
       applyNewToken(token, data?.data?.user ?? null);
     } catch (err) {
+      // Network failure: don't log out, the next attempt may succeed
       console.error("refreshAccessToken error:", err);
-      await logout("Network error — logged out.");
     }
   }, [API_BASE, applyNewToken, logout]);
 
@@ -171,7 +191,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("accessToken");
 
-    if (storedUser && storedToken) {
+    const storedExp = parseJwt(storedToken)?.exp;
+    const storedValid = !!storedExp && storedExp * 1000 > Date.now();
+
+    if (storedUser && storedToken && storedValid) {
       setUser(normalizeUser(JSON.parse(storedUser)));
       setAccessToken(storedToken);
       setIsAuth(true);
@@ -197,7 +220,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser,
         setAccessToken,
         setIsAuth,
+        setIsLoading,
         logout,
+        login,
         refreshAccessToken,
         notification,
         setNotification,

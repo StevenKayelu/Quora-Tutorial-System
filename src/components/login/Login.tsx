@@ -16,7 +16,9 @@ import {
   IconButton,
   InputAdornment,
   CircularProgress,
+  Alert,
 } from "@mui/material";
+import MarkEmailUnreadIcon from "@mui/icons-material/MarkEmailUnread";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
@@ -41,7 +43,13 @@ const Login = () => {
     severity: "success" | "error" | "info" | "warning";
   }>({ open: false, message: "", severity: "info" });
 
-  const { setIsAuth, setUser, setAccessToken } = useAuthContext();
+  const { login: startSession } = useAuthContext();
+
+  // Shown when login is refused because the email isn't verified yet
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendEmail, setResendEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
   const axiosInstance = useAxiosInstance()();
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -49,6 +57,7 @@ const Login = () => {
 
   const login = useCallback(async () => {
     setIsLoading(true);
+    setNeedsVerification(false);
     setNotification({ open: true, message: "Attempting to sign in...", severity: "info" });
 
     if (!identifier || !password) {
@@ -72,17 +81,8 @@ const Login = () => {
 if (response.data.success && response.data.data?.user) {
     const user = response.data.data.user;
     const accessToken = response.data.data.accessToken;
-    // Persist in localStorage
-    localStorage.setItem("user", JSON.stringify(user));
-    localStorage.setItem("accessToken", accessToken);
-
-  // Log the accessToken (which is stored as a raw string)
-  const storedAccessToken = localStorage.getItem("accessToken");
-
-  const userFromStorage = localStorage.getItem("user");
-    setUser(user);
-    setAccessToken(accessToken);
-    setIsAuth(true);
+    // Persists token + user and re-arms auto-refresh in AuthContext
+    startSession(accessToken, user);
 
     setNotification({
       open: true,
@@ -92,8 +92,8 @@ if (response.data.success && response.data.data?.user) {
 
     setTimeout(() => {
       const roleValue = user.roleValue;
-      if (roleValue === 'admin') navigate("/admin", { replace: true });
-      else if (roleValue === 'user') navigate("/user", { replace: true });
+      if (user.role === "admin" || roleValue === 1) navigate("/admin", { replace: true });
+      else if (user.role === "user" || roleValue === 0) navigate("/user", { replace: true });
       else navigate("/", { replace: true });
     }, 1800);
 } else {
@@ -114,6 +114,13 @@ if (response.data.success && response.data.data?.user) {
           message = err.response.data.message || message;
           if (err.response.status === 404) severity = "warning"; // User not found
           if (err.response.status === 401) severity = "warning"; // Wrong password
+          if (err.response.status === 403 && /verify/i.test(message)) {
+            // Unverified email: offer to resend the verification link
+            severity = "warning";
+            setNeedsVerification(true);
+            setResendSent(false);
+            setResendEmail(identifier.includes("@") ? identifier.trim() : "");
+          }
         } else if (err.request) {
           message = "No response from server. Please check your connection.";
           severity = "error";
@@ -128,7 +135,36 @@ if (response.data.success && response.data.data?.user) {
     } finally {
       setIsLoading(false);
     }
-  }, [identifier, password, staySignedIn, axiosInstance, setAccessToken, setIsAuth, setUser, navigate]);
+  }, [identifier, password, staySignedIn, axiosInstance, startSession, navigate]);
+
+  const handleResendVerification = async () => {
+    const email = resendEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setNotification({ open: true, message: "Please enter the email address you registered with.", severity: "error" });
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      const response = await axiosInstance.post<ApiResponse>(`${API_BASE_URL}/api/auth/resend-verification`, { email });
+      setResendSent(true);
+      setNotification({
+        open: true,
+        message: response.data.message || "If that account needs verifying, a new link is on its way.",
+        severity: "success",
+      });
+    } catch (err) {
+      let message = "Couldn't resend the email. Please try again later.";
+      let severity: "error" | "warning" = "error";
+      if (axios.isAxiosError(err) && err.response) {
+        message = err.response.data?.message || message;
+        if (err.response.status === 429) severity = "warning"; // rate limited
+      }
+      setNotification({ open: true, message, severity });
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,6 +278,48 @@ const { systemInfo } = useSystemInfo();
           >
             {isLoading ? "Signing In..." : "Login"}
           </Button>
+
+          {needsVerification && (
+            <Alert
+              severity="warning"
+              icon={<MarkEmailUnreadIcon />}
+              sx={{ mb: 2, alignItems: "flex-start", "& .MuiAlert-message": { width: "100%" } }}
+            >
+              <Typography variant="body2" fontWeight={700}>
+                Your email isn't verified yet
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1.5 }}>
+                {resendSent
+                  ? "We've sent a new verification link. Check your inbox (and spam folder), then come back to log in."
+                  : "Didn't get the email, or the link expired? We can send you a new one."}
+              </Typography>
+
+              {!identifier.includes("@") && (
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="email"
+                  label="Email you registered with"
+                  value={resendEmail}
+                  onChange={(e) => setResendEmail(e.target.value)}
+                  sx={{ mb: 1.5, bgcolor: "#fff" }}
+                />
+              )}
+
+              <Button
+                variant="contained"
+                color="warning"
+                size="small"
+                disableElevation
+                onClick={handleResendVerification}
+                disabled={isResending || !resendEmail.trim()}
+                startIcon={isResending ? <CircularProgress size={16} color="inherit" /> : null}
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              >
+                {isResending ? "Sending..." : resendSent ? "Send again" : "Resend verification email"}
+              </Button>
+            </Alert>
+          )}
 
           <Grid container justifyContent="flex-start">
             <Grid item>

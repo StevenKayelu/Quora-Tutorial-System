@@ -4,9 +4,9 @@ import { RefreshToken, User } from "./User";
 export interface ApiResponse {
   success: boolean;
   message: string;
-  auth: Auth;
-  data: string | number | User | RefreshToken | null;
-  error: {
+  auth?: Auth;
+  data: any;
+  error?: {
     code: number;
     message: string;
   };

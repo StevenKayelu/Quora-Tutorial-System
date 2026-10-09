@@ -94,7 +94,10 @@ export default function Payments() {
 
       const coursesMap = {};
       schoolsData.forEach(s => {
-        coursesMap[s.id] = allCourses.filter(c => c.school_id === s.id);
+        // Main school or shared with this school
+        coursesMap[s.id] = allCourses.filter(
+          c => c.school_id === s.id || (c.shared_school_ids || []).includes(s.id)
+        );
       });
       setCoursesBySchool(coursesMap);
 
@@ -119,7 +122,7 @@ export default function Payments() {
   // ----------------- Handlers -----------------
   const toggleCourseSelection = (course) => {
     if (subscribedCourseIds.includes(course.id)) {
-      navigate("/my-courses", { state: { schoolId: course.school_id, courseId: course.id } });
+      navigate("/user/my-courses", { state: { schoolId: course.school_id, courseId: course.id } });
       return;
     }
     const updated = selectedCourses.some(c => c.id === course.id)
@@ -151,10 +154,7 @@ export default function Payments() {
       setStatusMessage("Sending payment request…");
 
       const res = await axiosInstance.post(API.initiatePayment, {
-        user_id: user.id,
         course_id: selectedCourses.map(c => c.id),
-        amount: totalAmount,
-        currency: "ZMW",
         phone,
       });
 

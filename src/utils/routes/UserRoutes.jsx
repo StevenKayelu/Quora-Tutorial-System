@@ -14,6 +14,7 @@ import AvailableCourses from "../../components/user/courses/AvailableCourses";
 import Payments from "../../components/user/payments/Payments";
 import Contact from "../../components/user/contact/Contact";
 import MembershipCardPage from "../../components/user/MembershipCardPage";
+import AcademicProfilePrompt from "../../components/user/shared/AcademicProfilePrompt";
 
 const UserRoutes = () => {
   const routes = [
@@ -24,6 +25,7 @@ const UserRoutes = () => {
           <CssBaseline />
 
           <ProtectedRoutes allowedRoles={["user"]}>
+            <AcademicProfilePrompt />
             <PanelLayout />
           </ProtectedRoutes>
         </ThemeProvider>

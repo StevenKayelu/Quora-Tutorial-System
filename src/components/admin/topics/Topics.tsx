@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Box,
   Paper,
@@ -32,7 +33,11 @@ export default function TopicsMasterDetail() {
   // ---------------- STATE ----------------
   const [courses, setCourses] = useState<any[]>([]);
   const [courseTerms, setCourseTerms] = useState<any[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
+  // ?course_id= (from the Courses page) pre-selects that course on arrival
+  const location = useLocation();
+  const [selectedCourse, setSelectedCourse] = useState<number | null>(
+    () => Number(new URLSearchParams(location.search).get("course_id")) || null
+  );
   const [selectedTerm, setSelectedTerm] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] =
     useState<"Notes" | "Videos" | "Test Papers" | "Tutorial Sheets">("Notes");
@@ -74,7 +79,11 @@ const [confirmLoading, setConfirmLoading] = useState(false);
 
 
   // ---------------- SNACK ----------------
-  const [snack, setSnack] = useState({
+  const [snack, setSnack] = useState<{
+    open: boolean;
+    severity: "success" | "error" | "info" | "warning";
+    message: string;
+  }>({
     open: false,
     severity: "info",
     message: "",
@@ -84,6 +93,19 @@ const [confirmLoading, setConfirmLoading] = useState(false);
     severity: "error" | "success" | "info" | "warning",
     message: string
   ) => setSnack({ open: true, severity, message });
+
+  // ---------------- COURSE FROM LINK ----------------
+  // Follow later links too; drop an id that isn't a real course (the filter
+  // then falls back to the first course as before).
+  useEffect(() => {
+    const courseId = Number(new URLSearchParams(location.search).get("course_id")) || null;
+    if (!courses.length) return;
+    if (courseId && courses.some((c) => c.id === courseId)) {
+      setSelectedCourse((prev) => (prev === courseId ? prev : courseId));
+    } else if (courseId) {
+      setSelectedCourse(null);
+    }
+  }, [location.search, courses]);
 
   // ---------------- LOAD COURSES ----------------
   useEffect(() => {

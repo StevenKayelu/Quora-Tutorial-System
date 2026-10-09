@@ -34,7 +34,11 @@ export default function Schools() {
   const [selectedId, setSelectedId] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [snack, setSnack] = useState({ open: false, severity: "info", message: "" });
+  const [snack, setSnack] = useState<{
+    open: boolean;
+    severity: "success" | "error" | "info" | "warning";
+    message: string;
+  }>({ open: false, severity: "info", message: "" });
 
   // --- Colors ---
   const BLUE_BG = "#e3f2fd";
@@ -54,7 +58,10 @@ export default function Schools() {
     } finally { setLoading(false); }
   };
 
-  const showSnack = (severity, message) => setSnack({ open: true, severity, message });
+  const showSnack = (
+    severity: "success" | "error" | "info" | "warning",
+    message: string
+  ) => setSnack({ open: true, severity, message });
 
   // --- CRUD ---
   const openCreateDialog = () => {

@@ -7,23 +7,12 @@ import {
   Button,
   CircularProgress,
   Stack,
-  Collapse,
-  Tooltip,
-  useMediaQuery,
   Snackbar,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton as MuiIconButton,
   Chip,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import PreviewIcon from "@mui/icons-material/Preview";
 import {
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon,
   Apartment as CourseIcon,
   Event as TermIcon,
   School as SchoolIcon,
@@ -31,8 +20,22 @@ import {
   ChevronRight,
 } from "@mui/icons-material";
 
-import { useTheme } from "@mui/material/styles";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
+import {
+  ContentCategoryCards,
+  ContentCategoryKey,
+  CATEGORY_META,
+  VideoCard,
+  DocumentCard,
+  TopicHeading,
+  SubtopicHeading,
+  LayoutToggle,
+  VideoPlayerDialog,
+  DocumentViewerDialog,
+  contentGridSx,
+  useContentLayout,
+  PlayingVideo,
+} from "../shared/CourseContentUI";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -53,9 +56,12 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// A course belongs to its main school and to any school it's shared with
+const courseInSchool = (course, schoolId) =>
+  String(course.school_id) === String(schoolId) ||
+  (course.shared_school_ids || []).some((id) => String(id) === String(schoolId));
+
 export default function AvailableCourses() {
-  const theme = useTheme();
-  const isXs = useMediaQuery(theme.breakpoints.down("sm"));
   const axiosInstance = useAxiosInstance()();
   const navigate = useNavigate();
   const [schools, setSchools] = useState([]);
@@ -67,8 +73,6 @@ export default function AvailableCourses() {
   const [topics, setTopics] = useState([]);
   const [subtopics, setSubtopics] = useState([]);
   const [topicMaterials, setTopicMaterials] = useState([]);
-  const [openTopics, setOpenTopics] = useState({});
-  const [openSubtopics, setOpenSubtopics] = useState({});
   const [loading, setLoading] = useState(false);
   const [snack, setSnack] = useState<{
     open: boolean;
@@ -85,6 +89,31 @@ export default function AvailableCourses() {
 
   // UI-only: spinner while a course's terms are being fetched
   const [loadingCourseTerms, setLoadingCourseTerms] = useState(false);
+
+  // UI-only: content category view for the selected term
+  const [contentFilter, setContentFilter] = useState<ContentCategoryKey | null>(
+    null
+  );
+  const [loadingTermMaterials, setLoadingTermMaterials] = useState(false);
+  const [playingVideo, setPlayingVideo] = useState<PlayingVideo | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
+  const { layout, setLayout, isLarge } = useContentLayout();
+
+  // The student's own school (from registration) is listed first
+  const [mySchoolId, setMySchoolId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadMySchool = () =>
+      axiosInstance
+        .get(`${API_BASE}/api/academic/me`)
+        .then((res) => setMySchoolId(res.data?.data?.schoolId ?? null))
+        .catch((err) => console.error("Failed to load your school:", err));
+
+    loadMySchool();
+    window.addEventListener("academic-profile-updated", loadMySchool);
+    return () => window.removeEventListener("academic-profile-updated", loadMySchool);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ====================================================================
   // DATA + BUSINESS LOGIC (unchanged)
@@ -147,9 +176,7 @@ export default function AvailableCourses() {
 
   const filteredCourses = useMemo(() => {
     if (!selectedSchool) return [];
-    return courses.filter(
-      (c) => String(c.school_id) === String(selectedSchool)
-    );
+    return courses.filter((c) => courseInSchool(c, selectedSchool));
   }, [courses, selectedSchool]);
 
   const filteredTerms = useMemo(() => {
@@ -496,228 +523,263 @@ export default function AvailableCourses() {
     </Box>
   );
 
-  // ---- Materials (video thumbnails + note previews) ----
-  const renderMaterials = (materials, canPreview) => {
-    if (!materials || !materials.length) {
-      return (
-        <Typography fontStyle="italic" color="text.secondary" sx={{ py: 1 }}>
-          No materials available.
-        </Typography>
-      );
-    }
+  // ---- Term content: load every subtopic's materials once a term opens ----
+  // Reuses fetchSubtopicMaterials (cached per subtopic) for each subtopic.
+  const termSubtopics = useMemo(() => {
+    if (!selectedTerm) return [];
+    const topicIds = new Set(filteredTopics.map((t) => String(t.id)));
+    return subtopics.filter((st) => topicIds.has(String(st.topic_id)));
+  }, [selectedTerm, filteredTopics, subtopics]);
 
-    return materials.map((m) => {
-      const type = m.material_type || (m.video_url ? "video" : "note");
+  useEffect(() => {
+    setContentFilter(null);
+    if (!selectedTerm || !termSubtopics.length) return;
 
-      const ytId = getYouTubeId(m.video_url);
-      const videoSrc = ytId ? `https://www.youtube.com/embed/${ytId}` : "";
+    let cancelled = false;
+    setLoadingTermMaterials(true);
+    Promise.all(termSubtopics.map((st) => fetchSubtopicMaterials(st))).finally(
+      () => {
+        if (!cancelled) setLoadingTermMaterials(false);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTerm, termSubtopics.length]);
 
-      return (
-        <Box
-          key={m.id}
-          sx={{
-            p: { xs: 1.5, sm: 2 },
-            mb: 1,
-            borderRadius: 2,
-            bgcolor: "#f8f9fb",
-            opacity: canPreview ? 1 : 0.45,
-            position: "relative",
-            minWidth: 0,
-            cursor: canPreview ? "pointer" : "not-allowed",
-            "&:hover": canPreview ? { boxShadow: 3, bgcolor: "#e8f0fe" } : {},
-          }}
-        >
-          {/* PREMIUM OVERLAY */}
-          {!canPreview && (
-            <Box
-              sx={{
-                position: "absolute",
-                inset: 0,
-                bgcolor: "rgba(255,255,255,0.75)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 2,
-                zIndex: 2,
-              }}
-            >
-              <Typography fontWeight={600} color="error">
-                Premium Content
-              </Typography>
-            </Box>
-          )}
+  const materialType = (m) =>
+    m.material_type || (m.video_url ? "video" : "note");
 
-          {m.title && (
-            <Typography fontWeight={600} sx={{ mb: 1, ...wrapText }}>
-              {m.title}
-            </Typography>
-          )}
+  // topic → subtopics → materials of one type (empty groups removed)
+  const groupTermMaterials = (type) =>
+    filteredTopics
+      .map((topic) => ({
+        ...topic,
+        subtopics: subtopics
+          .filter((st) => String(st.topic_id) === String(topic.id))
+          .map((st) => ({
+            ...st,
+            canPreview: Number(st.is_free) === 1,
+            materials: (subtopicMaterialsCache[st.id] || []).filter(
+              (m) => materialType(m) === type
+            ),
+          }))
+          .filter((st) => st.materials.length > 0),
+      }))
+      .filter((topic) => topic.subtopics.length > 0);
 
-          {/* VIDEO */}
-          {type === "video" && ytId && (
-            <Box
-              sx={{ maxWidth: 350, width: "100%" }}
-              onClick={() => {
-                if (!canPreview) {
-                  showSnack("info", "Please subscribe to access this content.");
-                  return;
-                }
-                setPreviewUrl(videoSrc);
-                setPreviewOpen(true);
-              }}
-            >
-              <img
-                src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-                alt="Video thumbnail"
-                style={{ width: "100%", display: "block", borderRadius: 8 }}
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", mt: 0.5 }}
-              >
-                Tap to preview video
-              </Typography>
-            </Box>
-          )}
-
-          {/* NOTE */}
-          {type === "note" && (
-            <Tooltip title={canPreview ? "Preview note" : "Premium content"}>
-              <span>
-                <Button
-                  variant="outlined"
-                  startIcon={<PreviewIcon />}
-                  disabled={!canPreview}
-                  onClick={() => {
-                    setPreviewUrl(API.previewMaterial(m.id));
-                    setPreviewOpen(true);
-                  }}
-                  sx={{ ...actionBtnStyle, width: { xs: "100%", sm: "auto" } }}
-                >
-                  Preview note
-                </Button>
-              </span>
-            </Tooltip>
-          )}
-        </Box>
-      );
-    });
-  };
-
-  // ---- Subtopics (expand to lazy-load materials) ----
-  const renderSubtopics = (topic) => {
-    const topicSubtopics = subtopics.filter(
-      (st) => String(st.topic_id) === String(topic.id)
+  const videoGroups = groupTermMaterials("video");
+  const noteGroups = groupTermMaterials("note");
+  const countGroups = (groups) =>
+    groups.reduce(
+      (sum, t) =>
+        sum + t.subtopics.reduce((n, st) => n + st.materials.length, 0),
+      0
     );
 
-    return topicSubtopics.map((st) => {
-      const canPreview = Number(st.is_free) === 1;
+  const courseSubscribed = subscribedCourseIds.includes(Number(selectedCourse));
 
-      const toggle = async () => {
-        setOpenSubtopics((prev) => ({
-          ...prev,
-          [st.id]: !prev[st.id],
-        }));
+  const categoryItems = [
+    {
+      key: "videos" as const,
+      count: loadingTermMaterials ? null : countGroups(videoGroups),
+    },
+    {
+      key: "notes" as const,
+      count: loadingTermMaterials ? null : countGroups(noteGroups),
+    },
+    {
+      key: "tests" as const,
+      locked: !courseSubscribed,
+      hint: courseSubscribed ? "In My Courses" : "Subscribers only",
+    },
+    {
+      key: "tutorials" as const,
+      locked: !courseSubscribed,
+      hint: courseSubscribed ? "In My Courses" : "Subscribers only",
+    },
+  ];
 
-        if (!subtopicMaterialsCache[st.id]) {
-          await fetchSubtopicMaterials(st);
-        }
-      };
+  const goPremium = () => handlePremiumClick(selectedCourse, selectedSchool);
 
+  const playVideo = (m, topicTitle, canPreview) => {
+    if (!canPreview) {
+      showSnack("info", "Please subscribe to access this content.");
+      goPremium();
+      return;
+    }
+    const ytId = getYouTubeId(m.video_url);
+    if (ytId) {
+      setPlayingVideo({
+        ytId,
+        title: m.title,
+        description: m.description,
+        topic: topicTitle,
+      });
+    } else if (m.video_url) {
+      window.open(m.video_url, "_blank", "noopener");
+    } else {
+      showSnack("info", "This video link is not available yet.");
+    }
+  };
+
+  // The preview endpoint returns a signed file URL as JSON
+  const previewNote = async (m) => {
+    try {
+      const res = await axiosInstance.get(API.previewMaterial(m.id), {
+        headers: getAuthHeaders(),
+      });
+      const signedUrl = res.data?.url?.trim();
+      if (!signedUrl) throw new Error("No preview URL received");
+      setPreviewUrl(signedUrl);
+      setPreviewTitle(m.title || "Preview");
+      setPreviewOpen(true);
+    } catch (err) {
+      console.error(err);
+      showSnack(
+        "error",
+        err?.response?.data?.message || "Preview failed. Please try again."
+      );
+    }
+  };
+
+  const renderTermGroups = (groups, kind, emptyText) => {
+    if (loadingTermMaterials) {
       return (
-        <Box
-          key={st.id}
-          sx={{
-            mb: 1.5,
-            borderRadius: 2,
-            border: "1px solid",
-            borderColor: "divider",
-            bgcolor: "#ffffff",
-            overflow: "hidden",
-          }}
-        >
-          {/* SUBTOPIC HEADER */}
-          <Box
-            role="button"
-            tabIndex={0}
-            aria-expanded={!!openSubtopics[st.id]}
-            onClick={toggle}
-            onKeyDown={onKeyActivate(toggle)}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              px: 1,
-              py: 1,
-              minHeight: 52,
-              cursor: "pointer",
-              WebkitTapHighlightColor: "transparent",
-              "&:focus-visible": {
-                outline: "2px solid #1976d2",
-                outlineOffset: -2,
-              },
-            }}
-          >
-            <MuiIconButton size="small" tabIndex={-1} aria-hidden>
-              {openSubtopics[st.id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </MuiIconButton>
-
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 600, flex: 1, minWidth: 0, ...wrapText }}
-            >
-              {st.subtopic_title}
-            </Typography>
-
-            <Chip
-              label={canPreview ? "FREE" : "PREMIUM"}
-              color={canPreview ? "success" : "error"}
-              size="small"
-              sx={{ flexShrink: 0 }}
-            />
-          </Box>
-
-          {/* Unlock button for PREMIUM */}
-          {!canPreview && (
-            <Box sx={{ px: 1.5, pb: 1.5 }}>
-              <Button
-                variant="contained"
-                color="warning"
-                disableElevation
-                onClick={() => handlePremiumClick(selectedCourse, selectedSchool)}
-                sx={{ ...actionBtnStyle, width: { xs: "100%", sm: "auto" } }}
-              >
-                Unlock
-              </Button>
-            </Box>
-          )}
-
-          {/* SUBTOPIC CONTENT */}
-          <Collapse in={openSubtopics[st.id]} timeout="auto" unmountOnExit>
-            <Box sx={{ px: 1.5, pb: 1.5 }}>
-              {loadingSubtopic[st.id] ? (
-                <Box display="flex" alignItems="center" py={1}>
-                  <CircularProgress size={20} />
-                  <Typography sx={{ ml: 1, fontStyle: "italic" }}>
-                    Loading materials...
-                  </Typography>
-                </Box>
-              ) : subtopicMaterialsCache[st.id]?.length ? (
-                renderMaterials(subtopicMaterialsCache[st.id], canPreview)
-              ) : (
-                <Typography
-                  variant="body2"
-                  sx={{ fontStyle: "italic", color: "text.secondary", py: 1 }}
-                >
-                  No materials available for this subtopic yet.
-                </Typography>
-              )}
-            </Box>
-          </Collapse>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
+          <CircularProgress />
         </Box>
       );
-    });
+    }
+    if (!groups.length) return renderEmpty(emptyText);
+    const meta = CATEGORY_META[kind];
+
+    return groups.map((topic) => (
+      <Box key={topic.id} sx={{ mb: 3.5 }}>
+        <TopicHeading title={topic.topic_title} color={meta.color} />
+
+        {topic.subtopics.map((st) => (
+          <Box key={st.id} sx={{ mb: 2.5 }}>
+            <SubtopicHeading
+              title={st.subtopic_title}
+              count={st.materials.length}
+              noun={kind === "videos" ? ["video", "videos"] : ["note", "notes"]}
+              color={meta.color}
+              bg={meta.bg}
+              badge={
+                <>
+                  <Chip
+                    label={st.canPreview ? "FREE" : "PREMIUM"}
+                    color={st.canPreview ? "success" : "error"}
+                    size="small"
+                    sx={{ fontWeight: 600 }}
+                  />
+                  {!st.canPreview && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning"
+                      disableElevation
+                      onClick={goPremium}
+                      sx={{ textTransform: "none", fontWeight: 600 }}
+                    >
+                      Unlock
+                    </Button>
+                  )}
+                </>
+              }
+            />
+
+            <Box sx={contentGridSx(layout)}>
+              {st.materials.map((m) =>
+                kind === "videos" ? (
+                  <VideoCard
+                    key={m.id}
+                    title={m.title}
+                    description={m.description}
+                    videoUrl={m.video_url}
+                    layout={layout}
+                    locked={!st.canPreview}
+                    onPlay={() => playVideo(m, topic.topic_title, st.canPreview)}
+                  />
+                ) : (
+                  <DocumentCard
+                    key={m.id}
+                    title={m.title}
+                    description={m.description}
+                    kind="notes"
+                    layout={layout}
+                    locked={!st.canPreview}
+                    onPreview={() => previewNote(m)}
+                    onLockedClick={goPremium}
+                  />
+                )
+              )}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    ));
+  };
+
+  // Tests and tutorial sheets are subscriber content (not listed here)
+  const renderSubscriberOnly = (kind) => {
+    const meta = CATEGORY_META[kind];
+    const Icon = meta.icon;
+
+    return (
+      <Paper
+        variant="outlined"
+        sx={{
+          p: { xs: 3, sm: 4 },
+          borderRadius: 3,
+          textAlign: "center",
+          borderStyle: "dashed",
+          bgcolor: "#fff",
+        }}
+      >
+        <Box
+          sx={{
+            width: 64,
+            height: 64,
+            mx: "auto",
+            mb: 1.5,
+            borderRadius: "50%",
+            bgcolor: meta.bg,
+            color: meta.color,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon fontSize="large" />
+        </Box>
+        <Typography fontWeight={700} sx={{ mb: 0.5 }}>
+          {courseSubscribed
+            ? `${meta.label} are in My Courses`
+            : `${meta.label} are for subscribers`}
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 2, maxWidth: 420, mx: "auto" }}
+        >
+          {courseSubscribed
+            ? "You're subscribed to this course. Open it in My Courses to view and download them."
+            : "Subscribe to this course to preview and download every term's papers."}
+        </Typography>
+        <Button
+          variant="contained"
+          color={courseSubscribed ? "primary" : "warning"}
+          disableElevation
+          onClick={goPremium}
+          sx={{ ...actionBtnStyle, px: 3 }}
+        >
+          {courseSubscribed ? "Go to My Courses" : "Subscribe to unlock"}
+        </Button>
+      </Paper>
+    );
   };
 
   // ---- Level 3: term cards ----
@@ -840,69 +902,6 @@ export default function AvailableCourses() {
     </Box>
   );
 
-  // ---- Level 4: topics of the selected term ----
-  const renderTopics = () =>
-    filteredTopics.map((t) => {
-      const toggleTopic = () =>
-        setOpenTopics((prev) => ({
-          ...prev,
-          [t.id]: !prev[t.id],
-        }));
-
-      return (
-        <Paper
-          key={t.id}
-          elevation={1}
-          sx={{ mb: 2, borderRadius: 3, overflow: "hidden" }}
-        >
-          <Box
-            role="button"
-            tabIndex={0}
-            aria-expanded={!!openTopics[t.id]}
-            onClick={toggleTopic}
-            onKeyDown={onKeyActivate(toggleTopic)}
-            sx={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 1,
-              p: { xs: 1.5, sm: 2 },
-              minHeight: 56,
-              cursor: "pointer",
-              WebkitTapHighlightColor: "transparent",
-              "&:focus-visible": {
-                outline: "2px solid #1976d2",
-                outlineOffset: -2,
-              },
-            }}
-          >
-            <MuiIconButton size="small" tabIndex={-1} aria-hidden>
-              {openTopics[t.id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </MuiIconButton>
-
-            <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
-              <Typography variant="subtitle1" fontWeight={600} sx={wrapText}>
-                {t.topic_title}
-              </Typography>
-
-              {t.topic_description && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, ...wrapText }}
-                >
-                  {t.topic_description}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-
-          <Collapse in={openTopics[t.id]} timeout="auto" unmountOnExit>
-            <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 1 }}>{renderSubtopics(t)}</Box>
-          </Collapse>
-        </Paper>
-      );
-    });
-
   return (
     <Box
       sx={{
@@ -966,10 +965,17 @@ export default function AvailableCourses() {
                   )
                 ) : (
                   <Box sx={cardGrid}>
-                    {schools.map((s) => {
-                      const count = courses.filter(
-                        (c) => String(c.school_id) === String(s.id)
+                    {[...schools]
+                      .sort(
+                        (a, b) =>
+                          Number(Number(b.id) === Number(mySchoolId)) -
+                          Number(Number(a.id) === Number(mySchoolId))
+                      )
+                      .map((s) => {
+                      const count = courses.filter((c) =>
+                        courseInSchool(c, s.id)
                       ).length;
+                      const isMine = Number(s.id) === Number(mySchoolId);
 
                       return (
                         <Paper
@@ -994,6 +1000,14 @@ export default function AvailableCourses() {
                             <Typography variant="body2" color="text.secondary">
                               {count} {count === 1 ? "course" : "courses"}
                             </Typography>
+                            {isMine && (
+                              <Chip
+                                label="Your school"
+                                color="primary"
+                                size="small"
+                                sx={{ mt: 0.75, fontWeight: 600 }}
+                              />
+                            )}
                           </Box>
 
                           <ChevronRight
@@ -1105,8 +1119,8 @@ export default function AvailableCourses() {
               </Box>
             )}
 
-            {/* ================= LEVEL 4 — CONTENT ================= */}
-            {selectedCourse && selectedTerm && (
+            {/* ================= LEVEL 4 — CONTENT CATEGORIES ================= */}
+            {selectedCourse && selectedTerm && !contentFilter && (
               <Box>
                 <Button
                   startIcon={<ArrowBack />}
@@ -1123,63 +1137,87 @@ export default function AvailableCourses() {
                   selectedCourseName
                 )}
 
-                {filteredTopics.length
-                  ? renderTopics()
-                  : renderEmpty("No topics found for the selected filters.")}
+                {filteredTopics.length ? (
+                  <ContentCategoryCards
+                    items={categoryItems}
+                    onSelect={(key) => setContentFilter(key)}
+                  />
+                ) : (
+                  renderEmpty("No topics found for the selected filters.")
+                )}
+              </Box>
+            )}
+
+            {/* ================= LEVEL 5 — CATEGORY CONTENT ================= */}
+            {selectedCourse && selectedTerm && contentFilter && (
+              <Box>
+                <Button
+                  startIcon={<ArrowBack />}
+                  onClick={() => setContentFilter(null)}
+                  sx={backBtnStyle}
+                >
+                  Back to{" "}
+                  {selectedTermObj
+                    ? `Term ${selectedTermObj.term_number}`
+                    : "Term"}
+                </Button>
+
+                <Stack
+                  direction="row"
+                  alignItems="flex-start"
+                  justifyContent="space-between"
+                  spacing={2}
+                >
+                  {renderSectionTitle(
+                    CATEGORY_META[contentFilter].label,
+                    [
+                      selectedTermObj && `Term ${selectedTermObj.term_number}`,
+                      selectedCourseName,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  )}
+                  {isLarge &&
+                    (contentFilter === "videos" || contentFilter === "notes") && (
+                      <LayoutToggle value={layout} onChange={setLayout} />
+                    )}
+                </Stack>
+
+                {contentFilter === "videos" &&
+                  renderTermGroups(
+                    videoGroups,
+                    "videos",
+                    "No videos available for this term yet."
+                  )}
+
+                {contentFilter === "notes" &&
+                  renderTermGroups(
+                    noteGroups,
+                    "notes",
+                    "No notes available for this term yet."
+                  )}
+
+                {(contentFilter === "tests" || contentFilter === "tutorials") &&
+                  renderSubscriberOnly(contentFilter)}
               </Box>
             )}
           </>
         )}
       </Box>
 
-      {/* ================= PREVIEW DIALOG ================= */}
-      <Dialog
+      {/* ================= VIDEO PLAYER ================= */}
+      <VideoPlayerDialog
+        video={playingVideo}
+        onClose={() => setPlayingVideo(null)}
+      />
+
+      {/* ================= DOCUMENT VIEWER ================= */}
+      <DocumentViewerDialog
         open={previewOpen}
+        url={previewUrl}
+        title={previewTitle}
         onClose={() => setPreviewOpen(false)}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isXs}
-      >
-        <DialogTitle>Preview</DialogTitle>
-        <DialogContent
-          sx={{
-            display: "flex",
-            height: { sm: "75vh", md: "80vh" },
-            p: { xs: 0, sm: 2 },
-          }}
-        >
-          <iframe
-            src={previewUrl}
-            style={{ flex: 1, width: "100%", minHeight: 0, border: "none" }}
-            allowFullScreen
-            title="Preview"
-          />
-        </DialogContent>
-        <DialogActions
-          sx={{
-            flexDirection: { xs: "column-reverse", sm: "row" },
-            alignItems: { xs: "stretch", sm: "center" },
-            gap: 1,
-            p: { xs: 1.5, sm: 1 },
-            "& > :not(style) ~ :not(style)": { ml: { xs: 0, sm: 1 } },
-          }}
-        >
-          <Button onClick={() => setPreviewOpen(false)} sx={actionBtnStyle}>
-            Close
-          </Button>
-          {previewUrl.includes("youtube") && (
-            <Button
-              href={previewUrl.replace("embed/", "watch?v=")}
-              target="_blank"
-              color="error"
-              variant="contained"
-              sx={actionBtnStyle}
-            >
-              Watch Full Video on YouTube
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+      />
 
       <Snackbar
         open={snack.open}

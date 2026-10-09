@@ -21,6 +21,7 @@ import useAxiosInstance from "../../utils/config/axiosInstance";
 
 interface ContactInfo {
   contact_email: string;
+  contact_phone?: string;
   watsapp_number: string;
 }
 

@@ -22,6 +22,7 @@ interface TopicsListProps {
   topics?: any[];
   subtopics?: any[];
   materials?: any[];
+  selectedTerm?: number | null;
   selectedCategory: string;
   onAddClick?: () => void;
   onAddSubtopic?: (topic: any) => void;
