@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Paper,
-  Grid,
   Button,
   Divider,
   List,
@@ -19,21 +18,41 @@ import {
   AccordionDetails,
   Stack,
   Chip,
-  Select,
-  MenuItem,
+  Card,
+  CardContent,
+  CardActions,
+  CardActionArea,
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useTheme } from "@mui/material/styles";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
+import SearchIcon from "@mui/icons-material/Search";
+import SchoolIcon from "@mui/icons-material/School";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import { useTheme, alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
-import { useMediaQuery } from "@mui/material"; 
+import { useMediaQuery } from "@mui/material";
 import { useAuthContext } from "../../../utils/hooks/useCustomContext";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
 import ProtectedRoutes from "../../ProtectedRoutes";
+import { RecentUpdates } from "../shared/Notifications";
+import FreeToExplore from "../shared/FreeToExplore";
 
 const USER_ACTIONS = [
-  { name: "My Courses", path: "/user/my-courses" },
-  { name: "Available Courses", path: "/user/courses" },
+  {
+    name: "My Courses",
+    path: "/user/my-courses",
+    description: "Continue your enrolled courses",
+    Icon: MenuBookIcon,
+  },
+  {
+    name: "Available Courses",
+    path: "/user/courses",
+    description: "Explore available learning content",
+    Icon: SearchIcon,
+  },
 ];
 
 const UserDashboard = () => {
@@ -183,6 +202,16 @@ const UserDashboard = () => {
 
   const notifications = getNotifications();
 
+  // ---------------- UI helpers ----------------
+  const wrapText = { wordBreak: "break-word", overflowWrap: "anywhere" };
+
+  const statusChip = (status) => {
+    if (status === "active") return <Chip label="Active" color="success" size="small" />;
+    if (status === "expired") return <Chip label="Expired" color="error" size="small" />;
+    const label = status ? String(status).charAt(0).toUpperCase() + String(status).slice(1) : "Unknown";
+    return <Chip label={label} size="small" />;
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={6}>
@@ -197,125 +226,118 @@ const UserDashboard = () => {
         <title>Dashboard | {systemInfo?.system_name || "System"}</title>
       </Helmet>
 
-      <Box sx={{ p: { xs: 2, sm: 3 } }}>
-        {/* HEADER */}
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h5" fontWeight={600}>
-            Dashboard
-          </Typography>
-          <IconButton onClick={() => setNotifOpen(true)}>
-            <Badge badgeContent={notifications.length} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
-        </Box>
-
-        {/* Welcome */}
+      <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1200, mx: "auto", overflowX: "hidden" }}>
+        {/* ================= WELCOME ================= */}
         <Paper
+          elevation={3}
           sx={{
-            p: 3,
+            p: { xs: 2, sm: 3 },
             borderRadius: 3,
             background: "linear-gradient(135deg, #1976d2, #42a5f5)",
             color: "#fff",
-            mt: 2,
-            mb: 3,
+            mb: { xs: 2.5, sm: 3 },
           }}
         >
-          <Typography variant="h6">
-            Welcome, {user?.firstName} {user?.lastName}
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="flex-start" justifyContent="space-between">
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                component="h1"
+                sx={{ fontSize: { xs: "1.3rem", sm: "1.6rem", md: "1.85rem" }, fontWeight: 700, lineHeight: 1.25, ...wrapText }}
+              >
+                Welcome back{user?.firstName ? `, ${user.firstName}` : ""} 👋
+              </Typography>
+              <Typography sx={{ mt: 0.75, fontSize: { xs: "0.9rem", sm: "1rem" }, maxWidth: 560 }}>
+                Continue your learning journey or explore courses available to you.
+              </Typography>
+            </Box>
+
+            <IconButton
+              onClick={() => setNotifOpen(true)}
+              aria-label={`Notifications (${notifications.length})`}
+              sx={{
+                color: "inherit",
+                flexShrink: 0,
+                width: 48,
+                height: 48,
+                bgcolor: "rgba(255,255,255,0.18)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.28)" },
+              }}
+            >
+              <Badge badgeContent={notifications.length} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Stack>
         </Paper>
 
-        {/* Quick Actions */}
-        <Grid container spacing={2} mb={3}>
-          {USER_ACTIONS.map((action) => (
-            <Grid item xs={12} sm={6} key={action.name}>
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={() => navigate(action.path)}
-              >
-                {action.name}
-              </Button>
-            </Grid>
-          ))}
-        </Grid>
+        {/* ================= RECENT UPDATES (upload notifications) ================= */}
+        <RecentUpdates limit={5} />
 
-        {/* SUBSCRIPTIONS ACCORDION */}
-        {subscriptions.map((userGroup) => (
-          <Accordion
-            key={userGroup.user_id}
-            sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography
-                  variant="subtitle2"
-                  fontWeight="bold"
-                  color={userGroup.courses.length === 0 ? "error" : "text.primary"}
-                >
-                  {userGroup.user_name}
-                </Typography>
-                <Chip
-                  label={userGroup.courses.length}
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: 10 }}
-                  color={userGroup.courses.length === 0 ? "error" : "default"}
-                />
-              </Stack>
-            </AccordionSummary>
-
-            <AccordionDetails sx={{ p: isMobile ? 1.5 : 2, pt: 0 }}>
-              <Stack spacing={1}>
-                {userGroup.courses.map((course) => (
+        {/* ================= QUICK ACTIONS ================= */}
+        <Box
+          sx={{
+            display: "grid",
+            gap: { xs: 1.5, sm: 2 },
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+            mb: { xs: 3, sm: 4 },
+          }}
+        >
+          {USER_ACTIONS.map(({ name, path, description, Icon }) => (
+            <Card
+              key={name}
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${theme.palette.divider}`,
+                boxShadow: "none",
+                transition: "box-shadow 0.2s, border-color 0.2s",
+                "&:hover": { boxShadow: 3, borderColor: "primary.main" },
+              }}
+            >
+              <CardActionArea onClick={() => navigate(path)} sx={{ p: 2, minHeight: 76 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
                   <Box
-                    key={course.subscription_id}
                     sx={{
-                      p: 1.5,
-                      borderRadius: 1,
-                      bgcolor:
-                        course.status === "expired" ? "error.lighter" : "action.hover",
-                      border: `1px solid ${theme.palette.divider}`,
+                      width: 48,
+                      height: 48,
+                      flexShrink: 0,
+                      borderRadius: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "primary.main",
+                      bgcolor: alpha(theme.palette.primary.main, 0.12),
                     }}
                   >
-                    <Stack direction="row" justifyContent="space-between" mb={1}>
-                      <Typography
-                        variant="body2"
-                        fontWeight="bold"
-                        color={course.status === "expired" ? "error.main" : "text.primary"}
-                      >
-                        {course.course_title} ({course.status})
-                      </Typography>
-                      <Select
-                        size="small"
-                        value={course.status === "expired" ? "inactive" : course.status}
-                        disabled
-                      >
-                        <MenuItem value="active">Active</MenuItem>
-                        <MenuItem value="inactive">Inactive</MenuItem>
-                      </Select>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Enrolled: {formatDate(course.subscribed_at)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Expires: {formatDate(course.expires_at)}
+                    <Icon />
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700 }}>{name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {description}
                     </Typography>
                   </Box>
-                ))}
-              </Stack>
-            </AccordionDetails>
-          </Accordion>
-        ))}
+                  <ChevronRightIcon sx={{ color: "primary.main", flexShrink: 0 }} />
+                </Stack>
+              </CardActionArea>
+            </Card>
+          ))}
+        </Box>
 
-        {/* Notification Drawer */}
+        {/* ================= FREE TO EXPLORE (free lessons) ================= */}
+        <FreeToExplore />
+
+        {/* ================= NOTIFICATION DRAWER ================= */}
         <Drawer
           anchor={isMobile ? "bottom" : "right"}
           open={notifOpen}
           onClose={() => setNotifOpen(false)}
+          PaperProps={{
+            sx: isMobile
+              ? { borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "80vh" }
+              : {},
+          }}
         >
-          <Box sx={{ width: isMobile ? "100vw" : 350, p: 2 }}>
+          <Box sx={{ width: isMobile ? "100vw" : 350, maxWidth: "100vw", p: 2, boxSizing: "border-box" }}>
             <Typography variant="h6" mb={2}>
               Notifications
             </Typography>
@@ -339,18 +361,20 @@ const UserDashboard = () => {
                       }`,
                       mb: 1,
                       borderRadius: 1,
+                      flexDirection: "column",
+                      alignItems: "stretch",
+                      gap: 1,
                     }}
-                    secondaryAction={
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => navigate("/user/courses")}
-                      >
-                        Subscribe
-                      </Button>
-                    }
                   >
-                    <ListItemText primary={n.message} />
+                    <ListItemText primary={n.message} sx={{ m: 0, ...wrapText }} />
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => navigate("/user/courses")}
+                      sx={{ alignSelf: { xs: "stretch", sm: "flex-start" }, minHeight: 40, textTransform: "none" }}
+                    >
+                      Subscribe
+                    </Button>
                   </ListItem>
                 ))
               )}

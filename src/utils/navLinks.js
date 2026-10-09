@@ -7,6 +7,7 @@ import CardMembershipRoundedIcon from "@mui/icons-material/CardMembershipRounded
 import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
 
 export const NAV_LINKS = {
   user: [
@@ -21,6 +22,7 @@ export const NAV_LINKS = {
   admin: [
     { name: "Dashboard", path: "/admin", icon: DashboardRoundedIcon },
     { name: "Schools", path: "/admin/schools", icon: SchoolRoundedIcon },
+    { name: "Study Years", path: "/admin/study-years", icon: EventNoteRoundedIcon },
     { name: "Courses", path: "/admin/courses", icon: MenuBookRoundedIcon },
     { name: "Topics", path: "/admin/topics", icon: ExploreRoundedIcon },
     { name: "Users", path: "/admin/users", icon: PeopleAltRoundedIcon },

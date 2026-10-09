@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import img from "../../assets/sliderimages/2.jpg";
 import axios from "axios";
@@ -38,7 +38,26 @@ const Register = () => {
     password: "",
     gender: "",
     confirmPassword: "",
+    schoolId: "",
+    studyYearId: "",
   });
+
+  // School + year of study dropdowns (served by the backend)
+  const [options, setOptions] = useState<{
+    schools: { id: number; school_name: string }[];
+    years: { id: number; name: string }[];
+  }>({ schools: [], years: [] });
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  useEffect(() => {
+    axios
+      .get(`${API_BASE_URL}/api/academic/options`)
+      .then((res) => {
+        if (res.data?.success) setOptions(res.data.data);
+      })
+      .catch((err) => console.error("Failed to load registration options:", err))
+      .finally(() => setOptionsLoading(false));
+  }, [API_BASE_URL]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -66,7 +85,7 @@ const Register = () => {
     setIsLoading(true);
 
     // Check empty fields
-    if (!form.firstName || !form.lastName || !form.email || !form.mobile || !form.password || !form.confirmPassword || !form.gender) {
+    if (!form.firstName || !form.lastName || !form.email || !form.mobile || !form.password || !form.confirmPassword || !form.gender || !form.schoolId || !form.studyYearId) {
       setNotification({ open: true, severity: "error", message: "Please fill in all required fields." });
       setIsLoading(false);
       return;
@@ -112,6 +131,8 @@ const Register = () => {
         mobile: form.mobile,
         password: form.password,
         gender: form.gender,
+        schoolId: Number(form.schoolId),
+        studyYearId: Number(form.studyYearId),
       });
 
       if (response.data.success) {
@@ -124,7 +145,7 @@ const Register = () => {
             : "Registration successful! You can now log in.",
         });
 
-        setForm({ firstName: "", lastName: "", email: "", mobile: "", password: "", gender: "", confirmPassword: "" });
+        setForm({ firstName: "", lastName: "", email: "", mobile: "", password: "", gender: "", confirmPassword: "", schoolId: "", studyYearId: "" });
         setTimeout(() => navigate("/login"), 5000);
       } else {
         setNotification({ open: true, severity: "error", message: response.data.message || "Registration failed." });
@@ -232,6 +253,49 @@ const { systemInfo} = useSystemInfo()
                 helperText={form.mobile !== "" && !validateMobile(form.mobile) ? "Mobile number must be 10 digits." : ""}
               />
             </Grid>
+            <Grid item xs={12} sm={7}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="schoolId"
+                label="School"
+                select
+                value={form.schoolId}
+                onChange={(e) => handleChange("schoolId", e.target.value)}
+                disabled={optionsLoading}
+                helperText={
+                  !optionsLoading && options.schools.length === 0
+                    ? "No schools available yet. Please try again later."
+                    : ""
+                }
+              >
+                {options.schools.map((s) => (
+                  <MenuItem key={s.id} value={String(s.id)}>
+                    {s.school_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={5}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="studyYearId"
+                label="Year of Study"
+                select
+                value={form.studyYearId}
+                onChange={(e) => handleChange("studyYearId", e.target.value)}
+                disabled={optionsLoading}
+              >
+                {options.years.map((y) => (
+                  <MenuItem key={y.id} value={String(y.id)}>
+                    {y.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
           </Grid>
 
           <TextField
@@ -307,7 +371,9 @@ const { systemInfo} = useSystemInfo()
               !form.password ||
               !form.confirmPassword ||
               !form.firstName ||
-              !form.lastName
+              !form.lastName ||
+              !form.schoolId ||
+              !form.studyYearId
             }
             startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >

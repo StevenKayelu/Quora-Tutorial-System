@@ -86,7 +86,10 @@ export default function Payments() {
 
       const coursesMap = {};
       schoolsData.forEach(s => {
-        coursesMap[s.id] = allCourses.filter(c => c.school_id === s.id);
+        // Main school or shared with this school
+        coursesMap[s.id] = allCourses.filter(
+          c => c.school_id === s.id || (c.shared_school_ids || []).includes(s.id)
+        );
       });
       setCoursesBySchool(coursesMap);
 

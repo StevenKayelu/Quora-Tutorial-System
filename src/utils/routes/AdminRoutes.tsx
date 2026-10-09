@@ -16,6 +16,7 @@ import AdminTopics from "../../components/admin/topics/Topics";
 import AdminUsers from "../../components/admin/users/Users";
 import AdminPayments from "../../components/admin/payments/Payments";
 import AdminSystemInfo from "../../components/admin/system/SystemInfo";
+import AdminStudyYears from "../../components/admin/studyYears/StudyYears";
 const AdminRoutes = () => {
   const routes = useRoutes([
     {
@@ -31,6 +32,7 @@ const AdminRoutes = () => {
                 children: [
                   { index: true, element: <AdminDashboard /> },
                   { path: "schools", element: <AdminSchools /> },
+                  { path: "study-years", element: <AdminStudyYears /> },
                   { path: "courses", element: <AdminCourses /> },
                   { path: "topics", element: <AdminTopics /> },
                   { path: "users", element: <AdminUsers /> },

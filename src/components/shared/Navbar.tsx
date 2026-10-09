@@ -26,6 +26,7 @@ import Notification from "../Notification";
 import ProfileBadge from "../shared/ProfileBadge";
 import ProfileModal from "../shared/ProfileModal";
 import { useSystemInfo } from "../../contexts/SystemInfoContext";
+import { NotificationBell } from "../user/shared/Notifications";
 
 const Navbar = () => {
   const theme = useTheme();
@@ -47,12 +48,10 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (isLoading) return null;
-  if (!isAuth || !user) return null;
-
+  // Hooks must run on every render, so they stay above the early returns
   const links = useMemo(() => {
-    return user.role ? NAV_LINKS[user.role] ?? [] : [];
-  }, [user.role]);
+    return user?.role ? NAV_LINKS[user.role] ?? [] : [];
+  }, [user?.role]);
 
   const toggleDrawer = useCallback(() => setDrawerOpen((prev) => !prev), []);
 
@@ -60,6 +59,9 @@ const Navbar = () => {
     setDrawerOpen(false);
     await logout("You have successfully logged out!");
   }, [logout]);
+
+  if (isLoading) return null;
+  if (!isAuth || !user) return null;
 
   const drawerContent = (
     <Box
@@ -187,29 +189,12 @@ const Navbar = () => {
                   transition: "transform 0.2s ease",
                 }}
               >
-                <Paper elevation={0} sx={{ p: 0.75, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.14)" }}>
-                  <Box
-                    component="img"
-                    src={systemInfo?.logo}
-                    alt={`${systemInfo?.system_name ?? "System"} logo`}
-                    sx={{ width: 30, height: 30, objectFit: "contain", display: "block" }}
-                  />
-                </Paper>
-
-                <Typography variant="h6" fontWeight={700} noWrap sx={{ maxWidth: 220 }}>
-                  {systemInfo?.system_name || "Tutorial System"}
-                </Typography>
               </MuiLink>
             )}
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Notification
-              open={notification.open}
-              severity={notification.severity}
-              message={notification.message}
-              onClose={() => setNotification((prev) => ({ ...prev, open: false }))}
-            />
+            {user.role === "user" && <NotificationBell />}
             <ProfileBadge user={user} onClick={() => setProfileModalOpen(true)} />
           </Box>
         </Toolbar>

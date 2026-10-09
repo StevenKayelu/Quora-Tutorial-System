@@ -13,6 +13,7 @@ import AvailableCourses from "../../components/user/courses/AvailableCourses";
 import Payments from "../../components/user/payments/Payments";
 import Contact from "../../components/user/contact/Contact";
 import MembershipCardPage from "../../components/user/card/MembershipCardPage";
+import AcademicProfilePrompt from "../../components/user/shared/AcademicProfilePrompt";
 
 const UserRoutes = () => {
   const routes = useRoutes([
@@ -25,7 +26,12 @@ const UserRoutes = () => {
               {useRoutes([
                 {
                   path: "/",
-                  element: <PanelLayout />,
+                  element: (
+                    <>
+                      <AcademicProfilePrompt />
+                      <PanelLayout />
+                    </>
+                  ),
                   children: [
                     { index: true, element: <UserDashboard /> },
                     { path: "my-courses", element: <MyCourses /> },

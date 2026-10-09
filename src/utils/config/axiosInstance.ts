@@ -28,12 +28,16 @@ const useAxiosInstance = () => {
           response.headers["x-access-token"] || response.data?.auth?.accessToken;
         const userData = response.data?.auth?.user;
 
-        if (newAccessToken && userData) {
+        // The server re-issues the access token via x-access-token when it
+        // falls back to the refresh cookie; keep the client copy in sync.
+        if (newAccessToken) {
           localStorage.setItem("accessToken", newAccessToken);
-          localStorage.setItem("user", JSON.stringify(userData));
           setAccessToken(newAccessToken);
-          setUser(userData);
           setIsAuth(true);
+        }
+        if (newAccessToken && userData) {
+          localStorage.setItem("user", JSON.stringify(userData));
+          setUser(userData);
         }
 
         // Handle expired/invalid refresh
