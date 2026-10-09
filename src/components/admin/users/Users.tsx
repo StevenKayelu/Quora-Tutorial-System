@@ -127,7 +127,7 @@ const Users = () => {
             status: u.status?.toLowerCase() || "",
             u_email: u.email,
             gender: u.gender || "",
-            u_role: u.roleValue || u.u_role,
+            u_role: Number(u.roleValue ?? u.u_role ?? 0), // 0 = student, 1 = admin
             mobile: u.mobile || "",
           }))
         );
@@ -257,7 +257,7 @@ const handleEdit = (user: UserType) => {
     email: user.u_email || "",
     gender: user.gender || "",
     status: user.status || "",
-    role: String(user.u_role) || "",
+    role: String(user.u_role ?? 0),
     password: "", // Keep password empty for update
     mobile: user.mobile || "",
   });
@@ -432,7 +432,7 @@ const handleEdit = (user: UserType) => {
             <TextField select name="role" label="Role" fullWidth value={formData.role} onChange={handleChange}>
               <MenuItem value="">Select Role</MenuItem>
               <MenuItem value="1">Admin</MenuItem>
-              <MenuItem value="2">User</MenuItem>
+              <MenuItem value="0">User</MenuItem>
             </TextField>
             <TextField select name="status" label="Status" fullWidth value={formData.status} onChange={handleChange}>
               <MenuItem value="">Select Status</MenuItem>
