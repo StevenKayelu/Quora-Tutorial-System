@@ -20,6 +20,7 @@ import useAxiosInstance from "../../utils/config/axiosInstance";
 import { useSystemInfo } from "../../contexts/SystemInfoContext";
 import { useAuthContext } from "../../utils/hooks/useCustomContext";
 import { renderMembershipCardPng } from "../../utils/membershipCardImage";
+import quoraLogo from "../../assets/logo.jpg";
 
 type MembershipCardData = {
   studentName: string;
@@ -126,12 +127,21 @@ const MembershipCardPage = () => {
     }
   };
 
+  const loadBundledImage = (src: string) =>
+    new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+
   const handleDownloadMembershipCard = async () => {
     if (!cardData) return;
     setDownloading(true);
     setDownloadError(null);
     try {
-      const [photo, logo] = await Promise.all([loadCardImage("photo"), loadCardImage("logo")]);
+      const [photo, systemLogo] = await Promise.all([loadCardImage("photo"), loadCardImage("logo")]);
+      const logo = systemLogo || (await loadBundledImage(quoraLogo));
       const blob = await renderMembershipCardPng({
         systemName: systemInfo?.system_name || "Student Membership",
         studentName: displayName,
@@ -147,7 +157,7 @@ const MembershipCardPage = () => {
         photo,
         logo,
       });
-      [photo, logo].forEach((img) => img && URL.revokeObjectURL(img.src));
+      [photo, systemLogo].forEach((img) => img && URL.revokeObjectURL(img.src));
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -277,14 +287,23 @@ const MembershipCardPage = () => {
                       width: 46,
                       height: 46,
                       borderRadius: 2,
-                      background: "rgba(255,255,255,0.14)",
+                      background: "#fff",
                       display: "grid",
                       placeItems: "center",
+                      overflow: "hidden",
+                      flexShrink: 0,
                     }}
                   >
-                    <Typography fontWeight={800}>
-                      {(systemInfo?.system_name || "Q").charAt(0).toUpperCase()}
-                    </Typography>
+                    <Box
+                      component="img"
+                      src={systemInfo?.logo || quoraLogo}
+                      alt={`${systemInfo?.system_name || "Quora"} logo`}
+                      onError={(e) => {
+                        // a broken system logo URL falls back to the bundled Quora logo
+                        if (e.currentTarget.src !== quoraLogo) e.currentTarget.src = quoraLogo;
+                      }}
+                      sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />
                   </Paper>
                   <Box>
                     <Typography variant="h6" fontWeight={700}>
