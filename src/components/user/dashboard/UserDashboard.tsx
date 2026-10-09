@@ -145,7 +145,7 @@ const UserDashboard = () => {
         const expiry = sub.expires_at ? new Date(sub.expires_at) : null;
         if (!expiry) return;
 
-        const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.ceil((Number(expiry) - Number(today)) / (1000 * 60 * 60 * 24));
         const term = sub.term;
         const course = sub.course;
 
@@ -166,7 +166,7 @@ const UserDashboard = () => {
         if (term?.next_term) {
           const nextStart = new Date(term.next_term.start_date);
           const daysToNext = Math.ceil(
-            (nextStart - today) / (1000 * 60 * 60 * 24)
+            (Number(nextStart) - Number(today)) / (1000 * 60 * 60 * 24)
           );
           if (daysToNext <= 7 && daysToNext > 0) {
             notifications.push({

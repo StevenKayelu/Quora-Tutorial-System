@@ -74,7 +74,11 @@ const [confirmLoading, setConfirmLoading] = useState(false);
 
 
   // ---------------- SNACK ----------------
-  const [snack, setSnack] = useState({
+  const [snack, setSnack] = useState<{
+    open: boolean;
+    severity: "success" | "error" | "info" | "warning";
+    message: string;
+  }>({
     open: false,
     severity: "info",
     message: "",

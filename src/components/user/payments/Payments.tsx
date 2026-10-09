@@ -41,7 +41,11 @@ export default function Payments() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [phone, setPhone] = useState("");
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "info" | "warning";
+  }>({ open: false, message: "", severity: "info" });
   const [processing, setProcessing] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState("idle"); // idle → initiated → pending → success | failed | timeout
@@ -53,7 +57,8 @@ export default function Payments() {
   const paymentReferenceRef = useRef("");
 
   // ----------------- Helpers -----------------
-  const showSnackbar = (message, severity = "info") => setSnackbar({ open: true, message, severity });
+  const showSnackbar = (message: string, severity: "success" | "error" | "info" | "warning" = "info") =>
+    setSnackbar({ open: true, message, severity });
   const handleCloseSnackbar = () => setSnackbar({ ...snackbar, open: false });
   const isValidZambianPhone = (p) => /^0\d{9}$/.test((p || "").trim());
 
@@ -106,7 +111,7 @@ export default function Payments() {
   // ----------------- Handlers -----------------
   const toggleCourseSelection = (course) => {
     if (subscribedCourseIds.includes(course.id)) {
-      navigate("/my-courses", { state: { schoolId: course.school_id, courseId: course.id } });
+      navigate("/user/my-courses", { state: { schoolId: course.school_id, courseId: course.id } });
       return;
     }
     const updated = selectedCourses.some(c => c.id === course.id)
@@ -138,10 +143,7 @@ export default function Payments() {
       setStatusMessage("Sending payment request…");
 
       const res = await axiosInstance.post(API.initiatePayment, {
-        user_id: user.id,
         course_id: selectedCourses.map(c => c.id),
-        amount: totalAmount,
-        currency: "ZMW",
         phone,
       });
 

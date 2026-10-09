@@ -43,7 +43,11 @@ export default function Courses() {
 
   const [selectedId, setSelectedId] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [snack, setSnack] = useState({ open: false, severity: "info", message: "" });
+  const [snack, setSnack] = useState<{
+    open: boolean;
+    severity: "success" | "error" | "info" | "warning";
+    message: string;
+  }>({ open: false, severity: "info", message: "" });
 
   // -------------------------
   // Fetch data
@@ -83,7 +87,10 @@ export default function Courses() {
     }
   };
 
-  const showSnack = (severity, message) => setSnack({ open: true, severity, message });
+  const showSnack = (
+    severity: "success" | "error" | "info" | "warning",
+    message: string
+  ) => setSnack({ open: true, severity, message });
 
   // -------------------------
   // CRUD Operations
@@ -110,7 +117,7 @@ export default function Courses() {
   const handleSave = async () => {
     if (!form.course_name.trim()) return showSnack("warning", "Course name is required");
     if (!form.school_id) return showSnack("warning", "School selection is required");
-    if (!form.amount || isNaN(form.amount)) return showSnack("warning", "Amount must be numeric");
+    if (!form.amount || Number.isNaN(Number(form.amount))) return showSnack("warning", "Amount must be numeric");
 
     setLoading(true);
 

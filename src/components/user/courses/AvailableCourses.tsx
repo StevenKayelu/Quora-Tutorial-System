@@ -72,7 +72,11 @@ export default function AvailableCourses() {
   const [openTopics, setOpenTopics] = useState({});
   const [openSubtopics, setOpenSubtopics] = useState({});
   const [loading, setLoading] = useState(false);
-  const [snack, setSnack] = useState({ open: false, severity: "info", message: "" });
+  const [snack, setSnack] = useState<{
+    open: boolean;
+    severity: "success" | "error" | "info" | "warning";
+    message: string;
+  }>({ open: false, severity: "info", message: "" });
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,7 +119,10 @@ const handlePremiumClick = (courseId, schoolId) => {
 const [loadingSubtopic, setLoadingSubtopic] = useState({}); // key=subtopicId, value=boolean
 
 
-  const showSnack = (severity, message) => setSnack({ open: true, severity, message });
+  const showSnack = (
+    severity: "success" | "error" | "info" | "warning",
+    message: string
+  ) => setSnack({ open: true, severity, message });
 
 ///////////////////////////////////////////////////////////
   useEffect(() => {
@@ -276,6 +283,20 @@ const fetchSubtopicMaterials = async (subtopic) => {
   }
 };
 
+// The preview endpoint returns JSON { url } with a short-lived signed link,
+// so fetch it (with the auth header) and show that link in the iframe.
+const openNotePreview = async (materialId) => {
+  try {
+    const res = await axiosInstance.get(API.previewMaterial(materialId));
+    if (!res.data?.url) throw new Error("Missing preview URL");
+    setPreviewUrl(res.data.url);
+    setPreviewOpen(true);
+  } catch (err) {
+    console.error(err);
+    showSnack("error", "Unable to load preview.");
+  }
+};
+
 // Update renderSubtopics to trigger fetch when expanded
 const renderSubtopics = (topic) => {
   const topicSubtopics = subtopics.filter(
@@ -408,10 +429,7 @@ const renderSubtopics = (topic) => {
                   <span>
                     <MuiIconButton
                       disabled={!canPreview}
-                      onClick={() => {
-                        setPreviewUrl(API.previewMaterial(m.id));
-                        setPreviewOpen(true);
-                      }}
+                      onClick={() => openNotePreview(m.id)}
                     >
                       <PreviewIcon />
                     </MuiIconButton>
@@ -517,10 +535,7 @@ const renderMaterials = (materials, canPreview) => {
             <span>
               <MuiIconButton
                 disabled={!canPreview}
-                onClick={() => {
-                  setPreviewUrl(API.previewMaterial(m.id));
-                  setPreviewOpen(true);
-                }}
+                onClick={() => openNotePreview(m.id)}
               >
                 <PreviewIcon />
               </MuiIconButton>

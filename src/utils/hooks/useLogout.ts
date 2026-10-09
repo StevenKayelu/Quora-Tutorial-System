@@ -15,7 +15,7 @@ export const useLogout = () => {
   const logout = useCallback(() => {
 
     // 2️⃣ Send logout request in background (no need to await)
-    axiosInstance.get("/auth/logout").catch((error) => {
+    axiosInstance.post("/api/auth/logout").catch((error) => {
       console.error("Logout failed:", error);
     });
 

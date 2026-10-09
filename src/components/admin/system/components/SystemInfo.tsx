@@ -31,7 +31,11 @@ const normalizeArray = (value: any): string[] => {
   return [];
 };
 
-const SystemInfoAdmin: React.FC = ({
+type SystemInfoAdminProps = {
+  API_BASE: string;
+};
+
+const SystemInfoAdmin: React.FC<SystemInfoAdminProps> = ({
     API_BASE,
 }) => {
   const axios = useAxiosInstance()();

@@ -160,9 +160,9 @@ const handleSubmit = async () => {
     return;
   }
 
-  if (formData.password && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{7}$/.test(formData.password)) {
+  if (formData.password && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(formData.password)) {
     showNotification(
-      "Password must be exactly 7 characters and include letters and numbers",
+      "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.",
       "warning"
     );
     return;

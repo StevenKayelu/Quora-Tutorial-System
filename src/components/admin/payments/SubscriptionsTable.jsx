@@ -155,7 +155,7 @@ export default function SubscriptionsTable() {
   }
 
   async function updateStatus(subId, newStatus) {
-    await axiosInstance.put(`${API_SUBSCRIPTIONS}/${subId}/status`, { status: newStatus });
+    await axiosInstance.patch(`${API_SUBSCRIPTIONS}/${subId}`, { status: newStatus });
     fetchSubscriptions();
   }
 

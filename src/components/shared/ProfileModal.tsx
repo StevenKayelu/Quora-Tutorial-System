@@ -21,6 +21,7 @@ import { TransitionProps } from "@mui/material/transitions";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import Notification from "../Notification";
 import { AuthContext } from "../../contexts/AuthContext";
+import { PASSWORD_POLICY_MESSAGE, PASSWORD_REGEX } from "../../utils/passwordPolicy";
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & { children: React.ReactElement },
@@ -34,6 +35,8 @@ type ProfileModalProps = {
   onClose: () => void;
   user: {
     id: string;
+    userId?: string; // u_user_id, the key used by /api/auth/:id
+    uUserId?: string;
     firstName: string;
     lastName: string;
     gender?: string;
@@ -90,13 +93,12 @@ useEffect(() => {
   // Validate new password
   const validatePassword = (password: string) => {
     if (!password) return "";
-    if (password.length < 7) return "Password must be at least 7 characters long.";
-    if (!/[A-Za-z]/.test(password)) return "Password must contain at least one letter.";
-    if (!/\d/.test(password)) return "Password must contain at least one number.";
-    return "";
+    return PASSWORD_REGEX.test(password) ? "" : PASSWORD_POLICY_MESSAGE;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
@@ -192,9 +194,12 @@ useEffect(() => {
     body.append("lastName", formData.lastName);
     body.append("mobile", formData.mobile || "");
     body.append("gender", (formData.gender || "").toLowerCase());
-    if (formData.newPassword) body.append("newPassword", formData.newPassword);
+    if (formData.newPassword) {
+      body.append("newPassword", formData.newPassword);
+      body.append("oldPassword", formData.oldPassword || "");
+    }
 
-    const response = await fetch(`${API_BASE}/api/auth/${user.id}`, {
+    const response = await fetch(`${API_BASE}/api/auth/${user.userId ?? user.uUserId ?? user.id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
       credentials: "include",

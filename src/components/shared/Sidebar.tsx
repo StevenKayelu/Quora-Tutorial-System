@@ -1,171 +1,123 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   Box,
   List,
   ListItemButton,
+  ListItemIcon,
   ListItemText,
   Divider,
-  IconButton,
-  Drawer,
   Paper,
+  Typography,
+  Chip,
 } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
-import Notification from "../Notification";
 import { useAuthContext } from "../../utils/hooks/useCustomContext";
 import { NAV_LINKS } from "../../utils/navLinks";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useMediaQuery } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { useSystemInfo } from "../../contexts/SystemInfoContext";
 
-const DRAWER_WIDTH = 250;
-const APPBAR_HEIGHT = 64;
+const DRAWER_WIDTH = 260;
 
 const Sidebar = () => {
-  // -------------------- hooks (UNCONDITIONAL) --------------------
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { logout, user, isAuth } = useAuthContext();
-
-  const [notification, setNotification] = useState({
-    open: false,
-    message: "",
-    severity: "info" as "info" | "success" | "error" | "warning",
-  });
-
-  const theme = useTheme();
+  const { systemInfo } = useSystemInfo();
   const navigate = useNavigate();
   const location = useLocation();
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
   const links = useMemo(() => {
     if (!user?.role) return [];
     return NAV_LINKS[user.role] || [];
   }, [user?.role]);
 
-  // -------------------- guards AFTER hooks --------------------
   if (!isAuth || !user?.role) return null;
 
-  // -------------------- handlers --------------------
-const handleLogoutClick = async () => {
-  setMobileOpen(false);
-  await logout("Successfully logged out!");
-};
+  const handleLogoutClick = async () => {
+    await logout("Successfully logged out!");
+  };
 
-
-  // -------------------- drawer content --------------------
- const drawerContent = (
+  return (
     <Box
       sx={{
         width: DRAWER_WIDTH,
-        height: "100%",
-        background: "linear-gradient(180deg, #1361af 0%, #1361af 100%)",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        p: 2,
+        flexShrink: 0,
+        position: "fixed",
+        top: 72,
+        left: 0,
+        height: "calc(100vh - 72px)",
+        zIndex: 1200,
+        overflowY: "auto",
+        background: "linear-gradient(180deg, #0d4c98 0%, #1976d2 100%)",
+        borderRight: "1px solid rgba(255,255,255,0.12)",
       }}
     >
-      <List sx={{ flexGrow: 1 }}>
-        {links.map((link) => (
-          <ListItemButton
-            key={link.path}
-            onClick={() => {
-              navigate(link.path);
-              setMobileOpen(false);
-            }}
-            sx={{
-              color: "#fff",
-              "&:hover": { backgroundColor: "#3F51B5" },
-              borderRadius: 1,
-              mb: 1,
-              backgroundColor:
-                location.pathname === link.path
-                  ? "rgba(255,255,255,0.2)"
-                  : "transparent",
-              fontWeight: location.pathname === link.path ? 600 : 400,
-            }}
-          >
-            <ListItemText primary={link.name} />
-          </ListItemButton>
-        ))}
-      </List>
-      <Box>
-        <Divider sx={{ borderColor: "rgba(255,255,255,0.2)", mb: 1 }} />
-        <Paper elevation={3} sx={{ p: 1, backgroundColor: "transparent" }}>
-          <ListItemButton
-            onClick={handleLogoutClick}
-            sx={{
-              color: "#fff",
-              backgroundColor: "red",
-              "&:hover": { backgroundColor: "#d32f2f" },
-              borderRadius: 1,
-            }}
-          >
-            <ListItemText
-              primary="Logout"
-              primaryTypographyProps={{ fontWeight: 600 }}
-            />
-          </ListItemButton>
+      <Box sx={{ px: 2.25, py: 2.25, display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Paper elevation={0} sx={{ p: 0.8, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.12)" }}>
+          <Box
+            component="img"
+            src={systemInfo?.logo || ""}
+            alt={`${systemInfo?.system_name || "System"} logo`}
+            sx={{ width: 30, height: 30, objectFit: "contain", display: "block" }}
+          />
         </Paper>
+        <Typography variant="subtitle1" fontWeight={700} sx={{ color: "#fff" }}>
+          {systemInfo?.system_name || "Tutorial System"}
+        </Typography>
+      </Box>
+
+      <List sx={{ px: 1.5, py: 1 }}>
+        {links.map((link) => {
+          const Icon = link.icon;
+          const isActive = location.pathname === link.path || location.pathname.startsWith(`${link.path}/`);
+
+          return (
+            <ListItemButton
+              key={link.path}
+              onClick={() => navigate(link.path)}
+              selected={isActive}
+              sx={{
+                color: "#fff",
+                borderRadius: 2,
+                mb: 0.75,
+                px: 1.25,
+                py: 1,
+                border: isActive ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent",
+                backgroundColor: isActive ? "rgba(255,255,255,0.18)" : "transparent",
+                "&.Mui-selected": {
+                  backgroundColor: "rgba(255,255,255,0.18)",
+                },
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.12)" },
+              }}
+            >
+              {Icon && (
+                <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                  <Icon fontSize="small" />
+                </ListItemIcon>
+              )}
+              <ListItemText
+                primary={link.name}
+                primaryTypographyProps={{ fontWeight: isActive ? 700 : 500, fontSize: 14 }}
+              />
+            </ListItemButton>
+          );
+        })}
+      </List>
+
+      <Box sx={{ px: 1.5, pb: 2, mt: "auto" }}>
+        <Divider sx={{ borderColor: "rgba(255,255,255,0.2)", mb: 1.5 }} />
+        <Chip
+          label="Logout"
+          onClick={handleLogoutClick}
+          sx={{
+            width: "100%",
+            bgcolor: "rgba(255,255,255,0.12)",
+            color: "#fff",
+            fontWeight: 700,
+            py: 2,
+            borderRadius: 2,
+            "&:hover": { bgcolor: "rgba(255,255,255,0.18)" },
+          }}
+        />
       </Box>
     </Box>
-  );
-  return (
-    <>
-      {/* Mobile Menu Button */}
-      <IconButton
-        sx={{
-          display: { xs: "block", md: "none" },
-          color: "#fff",
-          m: 1,
-          zIndex: 1500, // ensure above other content
-        }}
-        onClick={() => setMobileOpen(true)}
-      >
-        <MenuIcon />
-      </IconButton>
-
-      {/* Mobile Drawer (Below AppBar) */}
-      <Drawer
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
-            mt: `${APPBAR_HEIGHT}px`, // ✅ below the AppBar
-            height: `calc(100vh - ${APPBAR_HEIGHT}px)`,
-            boxShadow: "4px 0 8px rgba(0,0,0,0.2)",
-          },
-        }}
-      >
-        {drawerContent}
-      </Drawer>
-
-      {/* Fixed Desktop Sidebar */}
-      <Box
-        sx={{
-          display: { xs: "none", md: "block" },
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          position: "fixed",
-          top: APPBAR_HEIGHT,
-          left: 0,
-          height: `calc(100vh - ${APPBAR_HEIGHT}px)`,
-          zIndex: 1200,
-          overflowY: "auto",
-          transition: "all 0.3s ease", // ✅ smooth transitions
-        }}
-      >
-        {drawerContent}
-      </Box>
-      <Notification
-        open={notification.open}
-        severity={notification.severity}
-        message={notification.message}
-        onClose={() => setNotification({ ...notification, open: false })}
-      />
-    </>
   );
 };
 

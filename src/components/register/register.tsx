@@ -21,6 +21,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { ApiResponse } from "../../../types/ApiResponse";
 import useAxiosInstance from "../../utils/config/axiosInstance";
+import { PASSWORD_POLICY_MESSAGE, PASSWORD_REGEX } from "../../utils/passwordPolicy";
 import {Helmet} from 'react-helmet-async';
 import { useSystemInfo } from "../../contexts/SystemInfoContext";
 const Register = () => {
@@ -59,10 +60,7 @@ const Register = () => {
 
   const validateMobile = (mobile: string) => /^[0-9]{10}$/.test(mobile);
 
-  const validatePassword = (password: string) => {
-    // Exactly 7 characters, at least 1 letter and 1 number
-    return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{7}$/.test(password);
-  };
+  const validatePassword = (password: string) => PASSWORD_REGEX.test(password);
 
   const handleRegister = useCallback(async () => {
     setIsLoading(true);
@@ -100,7 +98,7 @@ const Register = () => {
       setNotification({
         open: true,
         severity: "error",
-        message: "Password must be exactly 7 characters with at least one letter and one number.",
+        message: PASSWORD_POLICY_MESSAGE,
       });
       setIsLoading(false);
       return;
@@ -126,7 +124,7 @@ const Register = () => {
             : "Registration successful! You can now log in.",
         });
 
-        setForm({ firstName: "", lastName: "", email: "", mobile: "", password: "", confirmPassword: "" });
+        setForm({ firstName: "", lastName: "", email: "", mobile: "", password: "", gender: "", confirmPassword: "" });
         setTimeout(() => navigate("/login"), 5000);
       } else {
         setNotification({ open: true, severity: "error", message: response.data.message || "Registration failed." });
@@ -260,7 +258,7 @@ const { systemInfo} = useSystemInfo()
             error={form.password !== "" && !validatePassword(form.password)}
             helperText={
               form.password !== "" && !validatePassword(form.password)
-                ? "Password must be exactly 7 characters with at least one letter and one number."
+                ? PASSWORD_POLICY_MESSAGE
                 : ""
             }
             InputProps={{

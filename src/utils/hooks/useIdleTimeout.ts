@@ -11,13 +11,16 @@ import { useEffect } from "react";
  * @param {Function} onLogout - Function to execute when idle timeout occurs
  * @param {number} idleTime - Time in ms before logout (default 5 min)
  */
-export const useIdleTimeout = (onLogout, idleTime = 5 * 60 * 1000) => {
+export const useIdleTimeout = (
+  onLogout: () => void,
+  idleTime = 5 * 60 * 1000
+) => {
   useEffect(() => {
-    let inactivityTimer;
+    let inactivityTimer: ReturnType<typeof setInterval> | undefined;
 
     // Save current timestamp on user interaction
     const resetTimer = () => {
-      localStorage.setItem("lastActivity", Date.now());
+      localStorage.setItem("lastActivity", String(Date.now()));
     };
 
     // Check if user has been inactive for longer than allowed time

@@ -24,6 +24,7 @@ type AuthContextType = {
   setUser: (u: User | null) => void;
   setAccessToken: (t: string) => void;
   setIsAuth: (auth: boolean) => void;
+  setIsLoading: (loading: boolean) => void;
   logout: (reason?: string) => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   notification: NotificationType;
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     async (reason?: string) => {
       try {
         await fetch(`${API_BASE}/api/auth/logout`, {
+          method: "POST",
           credentials: "include",
         });
       } catch {
@@ -197,6 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser,
         setAccessToken,
         setIsAuth,
+        setIsLoading,
         logout,
         refreshAccessToken,
         notification,

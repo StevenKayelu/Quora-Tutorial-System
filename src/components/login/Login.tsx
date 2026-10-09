@@ -92,8 +92,8 @@ if (response.data.success && response.data.data?.user) {
 
     setTimeout(() => {
       const roleValue = user.roleValue;
-      if (roleValue === 'admin') navigate("/admin", { replace: true });
-      else if (roleValue === 'user') navigate("/user", { replace: true });
+      if (user.role === "admin" || roleValue === 1) navigate("/admin", { replace: true });
+      else if (user.role === "user" || roleValue === 0) navigate("/user", { replace: true });
       else navigate("/", { replace: true });
     }, 1800);
 } else {

@@ -12,6 +12,7 @@ import MyCourses from "../../components/user/myCourses/MyCourses";
 import AvailableCourses from "../../components/user/courses/AvailableCourses";
 import Payments from "../../components/user/payments/Payments";
 import Contact from "../../components/user/contact/Contact";
+import MembershipCardPage from "../../components/user/card/MembershipCardPage";
 
 const UserRoutes = () => {
   const routes = useRoutes([
@@ -31,6 +32,7 @@ const UserRoutes = () => {
                     { path: "courses", element: <AvailableCourses /> },
                     { path: "payments", element: <Payments /> },
                     { path: "contact", element: <Contact /> },
+                    { path: "card", element: <MembershipCardPage /> },
                     { path: "*", element: <PageNotFound /> },
                   ],
                 },

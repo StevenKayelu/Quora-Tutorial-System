@@ -9,10 +9,12 @@ import {
   Box,
   List,
   ListItemButton,
+  ListItemIcon,
   ListItemText,
   Divider,
   Paper,
   Link as MuiLink,
+  Chip,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { useTheme } from "@mui/material/styles";
@@ -45,109 +47,121 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* ================= EARLY RETURNS ================= */
-
   if (isLoading) return null;
-  if (!isAuth || !user) return null; // 🔐 Navbar hidden when logged out
-
-  /* ================= NAV LINKS ================= */
+  if (!isAuth || !user) return null;
 
   const links = useMemo(() => {
     return user.role ? NAV_LINKS[user.role] ?? [] : [];
   }, [user.role]);
 
-  /* ================= HANDLERS ================= */
+  const toggleDrawer = useCallback(() => setDrawerOpen((prev) => !prev), []);
 
-  const toggleDrawer = useCallback(() => {
-    setDrawerOpen((prev) => !prev);
-  }, []);
-
- const handleLogoutClick = useCallback(async () => {
-  setDrawerOpen(false);
-  await logout("You have successfully logged out!");
-}, [logout]);
-
-
-  /* ================= DRAWER ================= */
+  const handleLogoutClick = useCallback(async () => {
+    setDrawerOpen(false);
+    await logout("You have successfully logged out!");
+  }, [logout]);
 
   const drawerContent = (
     <Box
       sx={{
-        width: 260,
+        width: 280,
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        backgroundColor: "#1976d2",
+        background: "linear-gradient(180deg, #0d4c98 0%, #1976d2 100%)",
+        color: "#fff",
         pt: 2,
-        mt:7,
       }}
       role="navigation"
     >
-      <List sx={{ flexGrow: 1 }}>
-        {links.map((link) => (
-          <ListItemButton
-            key={link.path}
-            selected={location.pathname === link.path}
-            onClick={() => {
-              navigate(link.path);
-              setDrawerOpen(false);
-            }}
-            sx={{
-              color: "#fff",
-              mx: 1,
-              my: 0.5,
-              borderRadius: 1,
-              "&.Mui-selected": {
-                backgroundColor: "rgba(255,255,255,0.2)",
-              },
-              "&:hover": {
-                backgroundColor: "rgba(255,255,255,0.15)",
-              },
-            }}
-          >
-            <ListItemText primary={link.name} />
-          </ListItemButton>
-        ))}
+      <Box sx={{ px: 2, pb: 1.5, display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Paper elevation={0} sx={{ p: 0.8, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.12)" }}>
+          <Box
+            component="img"
+            src={systemInfo?.logo || ""}
+            alt={`${systemInfo?.system_name || "System"} logo`}
+            sx={{ width: 28, height: 28, objectFit: "contain", display: "block" }}
+          />
+        </Paper>
+        <Typography variant="subtitle1" fontWeight={700}>
+          {systemInfo?.system_name || "Tutorial System"}
+        </Typography>
+      </Box>
+
+      <List sx={{ flexGrow: 1, px: 1.5, py: 0.5 }}>
+        {links.map((link) => {
+          const Icon = link.icon;
+          const isActive = location.pathname === link.path || location.pathname.startsWith(`${link.path}/`);
+
+          return (
+            <ListItemButton
+              key={link.path}
+              selected={isActive}
+              onClick={() => {
+                navigate(link.path);
+                setDrawerOpen(false);
+              }}
+              sx={{
+                color: "#fff",
+                borderRadius: 2,
+                mb: 0.75,
+                px: 1.25,
+                py: 1,
+                backgroundColor: isActive ? "rgba(255,255,255,0.18)" : "transparent",
+                border: isActive ? "1px solid rgba(255,255,255,0.15)" : "1px solid transparent",
+                "&.Mui-selected": {
+                  backgroundColor: "rgba(255,255,255,0.18)",
+                },
+                "&:hover": {
+                  backgroundColor: "rgba(255,255,255,0.12)",
+                },
+              }}
+            >
+              {Icon && (
+                <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                  <Icon fontSize="small" />
+                </ListItemIcon>
+              )}
+              <ListItemText
+                primary={link.name}
+                primaryTypographyProps={{ fontWeight: isActive ? 700 : 500, fontSize: 14 }}
+              />
+            </ListItemButton>
+          );
+        })}
       </List>
 
-      <Box sx={{ p: 1 }}>
-        <Divider sx={{ borderColor: "rgba(255,255,255,0.3)", mb: 1 }} />
-        <Paper elevation={0} sx={{ backgroundColor: "transparent" }}>
-          <ListItemButton
-            onClick={handleLogoutClick}
-            sx={{
-              color: "#fff",
-              backgroundColor: theme.palette.error.main,
-              borderRadius: 1,
-              "&:hover": {
-                backgroundColor: theme.palette.error.dark,
-              },
-            }}
-          >
-            <ListItemText
-              primary="Logout"
-              primaryTypographyProps={{ fontWeight: 600 }}
-            />
-          </ListItemButton>
-        </Paper>
+      <Box sx={{ p: 1.5 }}>
+        <Divider sx={{ borderColor: "rgba(255,255,255,0.2)", mb: 1.5 }} />
+        <Chip
+          label="Logout"
+          onClick={handleLogoutClick}
+          sx={{
+            width: "100%",
+            bgcolor: "rgba(255,255,255,0.14)",
+            color: "#fff",
+            fontWeight: 700,
+            py: 2,
+            borderRadius: 2,
+            "&:hover": { bgcolor: "rgba(255,255,255,0.18)" },
+          }}
+        />
       </Box>
     </Box>
   );
-
-  /* ================= RENDER ================= */
 
   return (
     <>
       <AppBar
         position="sticky"
-        elevation={2}
+        elevation={0}
         sx={{
-          background: "linear-gradient(135deg, #1976d2 30%, #42a5f5 90%)",
+          background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
           zIndex: theme.zIndex.drawer + 1,
+          borderBottom: "1px solid rgba(255,255,255,0.18)",
         }}
       >
-        <Toolbar sx={{ justifyContent: "space-between" }}>
+        <Toolbar sx={{ justifyContent: "space-between", minHeight: { xs: 64, md: 72 } }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             {isMobile && (
               <IconButton
@@ -173,38 +187,31 @@ const Navbar = () => {
                   transition: "transform 0.2s ease",
                 }}
               >
-                <Paper
-                  elevation={3}
-                  sx={{
-                    p: 0.7,
-                    borderRadius: 2,
-                    backgroundColor: "#fff",
-                  }}
-                >
+                <Paper elevation={0} sx={{ p: 0.75, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.14)" }}>
                   <Box
                     component="img"
                     src={systemInfo?.logo}
                     alt={`${systemInfo?.system_name ?? "System"} logo`}
-                    sx={{ width: 30, height: 30, objectFit: "contain" }}
+                    sx={{ width: 30, height: 30, objectFit: "contain", display: "block" }}
                   />
                 </Paper>
 
-                <Typography
-                  variant="h6"
-                  fontWeight="bold"
-                  noWrap
-                  sx={{ maxWidth: 220 }}
-                >
+                <Typography variant="h6" fontWeight={700} noWrap sx={{ maxWidth: 220 }}>
                   {systemInfo?.system_name || "Tutorial System"}
                 </Typography>
               </MuiLink>
             )}
           </Box>
 
-          <ProfileBadge
-            user={user}
-            onClick={() => setProfileModalOpen(true)}
-          />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Notification
+              open={notification.open}
+              severity={notification.severity}
+              message={notification.message}
+              onClose={() => setNotification((prev) => ({ ...prev, open: false }))}
+            />
+            <ProfileBadge user={user} onClick={() => setProfileModalOpen(true)} />
+          </Box>
         </Toolbar>
       </AppBar>
 

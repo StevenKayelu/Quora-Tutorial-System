@@ -32,8 +32,10 @@ const ProtectedRoutes = ({ allowedRoles, children }: ProtectedRoutesProps) => {
 
   /* ================= ROLE CHECK ================= */
 
+  // Signed in, but this area belongs to the other role: send them to their own dashboard
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />;
+    const home = user.role === "admin" ? "/admin" : user.role === "user" ? "/user" : "/login";
+    return <Navigate to={home} replace />;
   }
 
   /* ================= RENDER ================= */
