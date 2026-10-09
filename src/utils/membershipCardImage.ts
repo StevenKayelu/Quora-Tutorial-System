@@ -1,5 +1,5 @@
 // Draws the membership card as a PNG at true ID-card size (ISO/IEC 7810 ID-1,
-// 85.6 x 54 mm) at 300 dpi: front and back stacked in one image. The file is
+// 85.6 x 54 mm) at 300 dpi, as a single one-sided card. The file is
 // tagged 300 dpi, so printing at "actual size" gives a real card-sized print.
 
 export type CardImageData = {
@@ -11,8 +11,6 @@ export type CardImageData = {
   academicYear: string;
   term: string;
   validUntil: string;
-  cardNumber: string;
-  amountPaid: string;
   courses: Array<{ name: string; school?: string }>;
   photo: HTMLImageElement | null;
   logo: HTMLImageElement | null;
@@ -22,7 +20,6 @@ const DPI = 300;
 const W = Math.round((85.6 / 25.4) * DPI); // 1011
 const H = Math.round((54 / 25.4) * DPI); // 638
 const MARGIN = 40;
-const GAP = 40;
 const FONT = '"Public Sans", Arial, sans-serif';
 const BLUE_DARK = "#0d47a1";
 const BLUE = "#1976d2";
@@ -81,7 +78,36 @@ const drawCover = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: numb
 const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "S";
 
-const drawFront = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, oy: number) => {
+// Wraps course names into at most maxLines lines; the rest becomes "+N more"
+const courseLines = (ctx: CanvasRenderingContext2D, names: string[], maxWidth: number, maxLines: number) => {
+  const sep = "   •   ";
+  const lines: string[] = [];
+  let line = "";
+  let used = 0;
+  for (const name of names) {
+    const next = line ? line + sep + name : name;
+    if (ctx.measureText(next).width <= maxWidth) {
+      line = next;
+      used++;
+      continue;
+    }
+    if (lines.length + 1 >= maxLines) break;
+    lines.push(line || name);
+    line = line ? name : "";
+    used++;
+  }
+  if (line) lines.push(line);
+  const rest = names.length - used;
+  if (rest > 0) {
+    let last = lines.pop() || "";
+    const more = `   +${rest} more`;
+    while (last && ctx.measureText(last + more).width > maxWidth) last = last.slice(0, -1);
+    lines.push(last.trimEnd() + more);
+  }
+  return lines;
+};
+
+const drawCard = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, oy: number) => {
   ctx.save();
   ctx.translate(ox, oy);
   roundRect(ctx, 0, 0, W, H, 32);
@@ -89,37 +115,38 @@ const drawFront = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
-  // Header band
+  // Header: name on the left, logo in the top-right corner
   const band = ctx.createLinearGradient(0, 0, W, 0);
   band.addColorStop(0, BLUE_DARK);
   band.addColorStop(1, BLUE);
   ctx.fillStyle = band;
-  ctx.fillRect(0, 0, W, 140);
+  ctx.fillRect(0, 0, W, 124);
 
-  let textX = 40;
+  const logoBox = 92;
+  const logoX = W - 32 - logoBox;
   if (d.logo) {
     ctx.save();
-    roundRect(ctx, 36, 26, 88, 88, 18);
+    roundRect(ctx, logoX, 16, logoBox, logoBox, 18);
     ctx.fillStyle = "#ffffff";
     ctx.fill();
     ctx.clip();
-    const s = Math.min(76 / d.logo.naturalWidth, 76 / d.logo.naturalHeight);
+    const s = Math.min((logoBox - 10) / d.logo.naturalWidth, (logoBox - 10) / d.logo.naturalHeight);
     const lw = d.logo.naturalWidth * s;
     const lh = d.logo.naturalHeight * s;
-    ctx.drawImage(d.logo, 36 + (88 - lw) / 2, 26 + (88 - lh) / 2, lw, lh);
+    ctx.drawImage(d.logo, logoX + (logoBox - lw) / 2, 16 + (logoBox - lh) / 2, lw, lh);
     ctx.restore();
-    textX = 144;
   }
+  const headerTextW = (d.logo ? logoX : W - 32) - 36 - 20;
   ctx.fillStyle = "#ffffff";
-  fitText(ctx, d.systemName, textX, 72, W - textX - 36, 38);
+  fitText(ctx, d.systemName, 36, 66, headerTextW, 36);
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = `600 20px ${FONT}`;
-  ctx.fillText("STUDENT MEMBERSHIP CARD", textX, 108);
+  ctx.font = `600 19px ${FONT}`;
+  ctx.fillText("STUDENT MEMBERSHIP CARD", 36, 100);
 
-  // Photo
-  const px = 36, py = 168, pw = 236, ph = 296;
+  // Profile photo (initials when there is none)
+  const px = 32, py = 148, pw = 196, ph = 246;
   ctx.save();
-  roundRect(ctx, px, py, pw, ph, 18);
+  roundRect(ctx, px, py, pw, ph, 16);
   ctx.clip();
   if (d.photo) {
     drawCover(ctx, d.photo, px, py, pw, ph);
@@ -127,93 +154,55 @@ const drawFront = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, 
     ctx.fillStyle = "#e3f2fd";
     ctx.fillRect(px, py, pw, ph);
     ctx.fillStyle = BLUE;
-    ctx.font = `800 96px ${FONT}`;
+    ctx.font = `800 80px ${FONT}`;
     ctx.textAlign = "center";
-    ctx.fillText(initials(d.studentName), px + pw / 2, py + ph / 2 + 34);
+    ctx.fillText(initials(d.studentName), px + pw / 2, py + ph / 2 + 28);
     ctx.textAlign = "left";
   }
   ctx.restore();
   ctx.strokeStyle = "#cfd8e3";
   ctx.lineWidth = 2;
-  roundRect(ctx, px, py, pw, ph, 18);
+  roundRect(ctx, px, py, pw, ph, 16);
   ctx.stroke();
 
   // Details
-  const dx = 304;
-  const dw = W - dx - 36;
+  const dx = 256;
+  const dw = W - dx - 32;
+  const half = dw / 2;
   ctx.fillStyle = INK;
-  fitText(ctx, d.studentName, dx, 206, dw, 40, 800);
-  field(ctx, "Student ID", d.studentId, dx, 252, dw / 2 - 12);
-  field(ctx, "Year of study", d.yearOfStudy, dx + dw / 2, 252, dw / 2);
-  field(ctx, "School", d.school, dx, 340, dw);
-  field(ctx, "Academic year", d.academicYear, dx, 428, dw / 2 - 12, 28);
-  field(ctx, "Term", d.term, dx + dw / 2, 428, dw / 2, 28);
+  fitText(ctx, d.studentName, dx, 186, dw, 36, 800);
+  field(ctx, "Student No.", d.studentId, dx, 226, half - 12, 28);
+  field(ctx, "Year of study", d.yearOfStudy, dx + half, 226, half, 28);
+  field(ctx, "School", d.school, dx, 300, dw, 26);
+  field(ctx, "Academic year", d.academicYear, dx, 374, half - 12, 26);
+  field(ctx, "Term", d.term, dx + half, 374, half, 26);
 
-  // Footer band
-  ctx.fillStyle = "#e8f1fd";
-  ctx.fillRect(0, H - 92, W, 92);
-  ctx.fillStyle = BLUE_DARK;
-  ctx.font = `700 24px ${FONT}`;
-  fitText(ctx, d.validUntil, 36, H - 36, W * 0.58, 26);
-  ctx.textAlign = "right";
-  ctx.fillStyle = MUTED;
-  ctx.font = `600 22px ${FONT}`;
-  ctx.fillText(`Card No. ${d.cardNumber}`, W - 36, H - 36);
-  ctx.textAlign = "left";
-
-  ctx.restore();
-};
-
-const drawBack = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, oy: number) => {
-  ctx.save();
-  ctx.translate(ox, oy);
-  roundRect(ctx, 0, 0, W, H, 32);
-  ctx.clip();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = BLUE;
-  ctx.fillRect(0, 0, W, 18);
-
-  ctx.fillStyle = BLUE_DARK;
-  ctx.font = `800 28px ${FONT}`;
-  ctx.fillText("ENROLLED COURSES", 40, 78);
-
-  const courses = d.courses || [];
-  const maxRows = 7;
-  const shown = courses.length > maxRows ? courses.slice(0, maxRows - 1) : courses;
-  let y = 128;
-  if (!courses.length) {
-    ctx.fillStyle = MUTED;
-    ctx.font = `500 26px ${FONT}`;
-    ctx.fillText("No active courses", 40, y);
-  }
-  for (const c of shown) {
-    ctx.fillStyle = BLUE;
-    ctx.beginPath();
-    ctx.arc(50, y - 9, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = INK;
-    fitText(ctx, c.school ? `${c.name} · ${c.school}` : c.name, 70, y, W - 110, 26, 600, 20);
-    y += 44;
-  }
-  if (courses.length > shown.length) {
-    ctx.fillStyle = MUTED;
-    ctx.font = `600 24px ${FONT}`;
-    ctx.fillText(`+${courses.length - shown.length} more`, 70, y);
-  }
-
-  // Footer
+  // Subscribed courses across the card
   ctx.strokeStyle = "#e3e8f0";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(40, H - 120);
-  ctx.lineTo(W - 40, H - 120);
+  ctx.moveTo(32, 428);
+  ctx.lineTo(W - 32, 428);
   ctx.stroke();
-  ctx.fillStyle = INK;
-  ctx.font = `700 24px ${FONT}`;
-  ctx.fillText(`Amount paid: ${d.amountPaid}`, 40, H - 78);
   ctx.fillStyle = MUTED;
-  fitText(ctx, `This card is the property of ${d.systemName}. Valid only with an active subscription.`, 40, H - 38, W - 80, 20, 500, 15);
+  ctx.font = `600 17px ${FONT}`;
+  ctx.fillText("SUBSCRIBED COURSES", 32, 460);
+  ctx.fillStyle = INK;
+  ctx.font = `600 22px ${FONT}`;
+  const names = (d.courses || []).map((c) => c.name).filter(Boolean);
+  const lines = names.length ? courseLines(ctx, names, W - 64, 2) : ["No active courses"];
+  lines.forEach((l, i) => ctx.fillText(l, 32, 494 + i * 32));
+
+  // Footer
+  ctx.fillStyle = "#e8f1fd";
+  ctx.fillRect(0, H - 70, W, 70);
+  ctx.fillStyle = BLUE_DARK;
+  fitText(ctx, d.validUntil, 32, H - 26, W * 0.5, 24);
+  ctx.textAlign = "right";
+  ctx.fillStyle = MUTED;
+  ctx.font = `500 17px ${FONT}`;
+  ctx.fillText("Valid only with an active subscription", W - 32, H - 28);
+  ctx.textAlign = "left";
 
   ctx.restore();
 };
@@ -256,22 +245,19 @@ export const renderMembershipCardPng = async (d: CardImageData): Promise<Blob> =
   if (document.fonts?.ready) await document.fonts.ready;
   const canvas = document.createElement("canvas");
   canvas.width = W + MARGIN * 2;
-  canvas.height = H * 2 + GAP + MARGIN * 2;
+  canvas.height = H + MARGIN * 2;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not supported on this device");
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  drawFront(ctx, d, MARGIN, MARGIN);
-  drawBack(ctx, d, MARGIN, MARGIN + H + GAP);
+  drawCard(ctx, d, MARGIN, MARGIN);
 
-  // Thin outline around each side to cut along
+  // Thin outline to cut along
   ctx.strokeStyle = "#c7d2de";
   ctx.lineWidth = 2;
   roundRect(ctx, MARGIN, MARGIN, W, H, 32);
-  ctx.stroke();
-  roundRect(ctx, MARGIN, MARGIN + H + GAP, W, H, 32);
   ctx.stroke();
 
   const png = await new Promise<Blob>((resolve, reject) =>

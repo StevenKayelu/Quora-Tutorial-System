@@ -27,6 +27,8 @@ export default function AcademicProfilePrompt() {
     years: { id: number; name: string }[];
   }>({ schools: [], years: [] });
   const [schoolId, setSchoolId] = useState("");
+  // Once a school is set, only an admin can change it
+  const [schoolLocked, setSchoolLocked] = useState(false);
   const [studyYearId, setStudyYearId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +43,10 @@ export default function AcademicProfilePrompt() {
         const opts = await axiosInstance.get(`${API_BASE}/api/academic/options`);
         if (cancelled) return;
         if (opts.data?.success) setOptions(opts.data.data);
-        if (me.data.data.schoolId) setSchoolId(String(me.data.data.schoolId));
+        if (me.data.data.schoolId) {
+          setSchoolId(String(me.data.data.schoolId));
+          setSchoolLocked(true);
+        }
         if (me.data.data.studyYearId) setStudyYearId(String(me.data.data.studyYearId));
         setOpen(true);
       } catch (err) {
@@ -120,6 +125,8 @@ export default function AcademicProfilePrompt() {
           label="School"
           value={schoolId}
           onChange={(e) => setSchoolId(e.target.value)}
+          disabled={schoolLocked}
+          helperText={schoolLocked ? "To change your school, contact the administrator." : undefined}
         >
           {options.schools.map((s) => (
             <MenuItem key={s.id} value={String(s.id)}>

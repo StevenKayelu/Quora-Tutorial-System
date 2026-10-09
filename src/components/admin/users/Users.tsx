@@ -97,6 +97,13 @@ const Users = () => {
     mobile: "",
   });
 
+  // School + year of study (students can't change their school themselves)
+  const [academicOptions, setAcademicOptions] = useState<{
+    schools: { id: number; school_name: string }[];
+    years: { id: number; name: string }[];
+  }>({ schools: [], years: [] });
+  const [academicForm, setAcademicForm] = useState({ schoolId: "", studyYearId: "" });
+
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
@@ -135,6 +142,10 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers();
+    axiosInstance
+      .get(`${API_BASE_URL}/api/academic/options`)
+      .then((res) => res.data?.success && setAcademicOptions(res.data.data))
+      .catch((err) => console.error("Failed to load schools and years", err));
   }, []);
 
   // ------------------------------ Sync filter from URL ------------------------------
@@ -168,6 +179,13 @@ const handleSubmit = async () => {
     return;
   }
 
+  const hasSchool = Boolean(academicForm.schoolId);
+  const hasYear = Boolean(academicForm.studyYearId);
+  if (hasSchool !== hasYear) {
+    showNotification("Choose both a school and a year of study, or leave both empty", "warning");
+    return;
+  }
+
   try {
     if (selectedUser) {
       // Prepare payload for update
@@ -187,6 +205,12 @@ const handleSubmit = async () => {
       }
 
       await axiosInstance.put(`${API_BASE_URL}/api/auth/${selectedUser.id}`, payload);
+      if (hasSchool && hasYear) {
+        await axiosInstance.put(`${API_BASE_URL}/api/academic/users/${selectedUser.id}`, {
+          schoolId: Number(academicForm.schoolId),
+          studyYearId: Number(academicForm.studyYearId),
+        });
+      }
       showNotification("User updated", "success");
     } else {
       await axiosInstance.post(`${API_BASE_URL}/api/auth/register`, {
@@ -197,6 +221,9 @@ const handleSubmit = async () => {
         role: Number(formData.role),
         password: formData.password,
         mobile: formData.mobile,
+        ...(hasSchool && hasYear
+          ? { schoolId: Number(academicForm.schoolId), studyYearId: Number(academicForm.studyYearId) }
+          : {}),
       });
       showNotification("User created", "success");
     }
@@ -234,6 +261,15 @@ const handleEdit = (user: UserType) => {
     password: "", // Keep password empty for update
     mobile: user.mobile || "",
   });
+
+  setAcademicForm({ schoolId: "", studyYearId: "" });
+  axiosInstance
+    .get(`${API_BASE_URL}/api/academic/users/${user.id}`)
+    .then((res) => {
+      const d = res.data?.data;
+      if (d) setAcademicForm({ schoolId: d.schoolId ? String(d.schoolId) : "", studyYearId: d.studyYearId ? String(d.studyYearId) : "" });
+    })
+    .catch((err) => console.error("Failed to load the user's school", err));
 
   setOpenDialog(true);
 };
@@ -299,6 +335,7 @@ const handleEdit = (user: UserType) => {
             onClick={() => {
               setSelectedUser(null);
               setFormData({ first_name: "", last_name: "", email: "", status: "", gender: "", role: "", password: "", mobile: "" });
+              setAcademicForm({ schoolId: "", studyYearId: "" });
               setOpenDialog(true);
             }}
           >
@@ -401,6 +438,31 @@ const handleEdit = (user: UserType) => {
               <MenuItem value="">Select Status</MenuItem>
               <MenuItem value="subscribed">Subscribed</MenuItem>
               <MenuItem value="unsubscribed">Unsubscribed</MenuItem>
+            </TextField>
+            <TextField
+              select
+              label="School"
+              fullWidth
+              value={academicForm.schoolId}
+              onChange={(e) => setAcademicForm({ ...academicForm, schoolId: e.target.value })}
+              helperText="Students can't change their school themselves; set it here."
+            >
+              <MenuItem value="">Not set</MenuItem>
+              {academicOptions.schools.map((s) => (
+                <MenuItem key={s.id} value={String(s.id)}>{s.school_name}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Year of Study"
+              fullWidth
+              value={academicForm.studyYearId}
+              onChange={(e) => setAcademicForm({ ...academicForm, studyYearId: e.target.value })}
+            >
+              <MenuItem value="">Not set</MenuItem>
+              {academicOptions.years.map((y) => (
+                <MenuItem key={y.id} value={String(y.id)}>{y.name}</MenuItem>
+              ))}
             </TextField>
             <TextField
               name="password"

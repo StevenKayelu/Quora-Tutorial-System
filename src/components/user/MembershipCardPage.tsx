@@ -151,8 +151,6 @@ const MembershipCardPage = () => {
         academicYear: cardData.academicYear,
         term: cardData.term,
         validUntil: cardData.validityText || `Valid until ${formatDate(cardData.validUntil)}`,
-        cardNumber: cardData.cardNumber,
-        amountPaid: formatCurrency(cardData.amountPaid),
         courses: cardData.courses || [],
         photo,
         logo,
@@ -274,64 +272,55 @@ const MembershipCardPage = () => {
                 sx={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center",
+                  alignItems: "flex-start",
                   gap: 2,
-                  flexWrap: "wrap",
                   mb: 2,
                 }}
               >
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Paper
-                    elevation={0}
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h6" fontWeight={700} sx={{ wordBreak: "break-word" }}>
+                    {systemInfo?.system_name || "Tutorial System"}
+                  </Typography>
+                  <Chip
+                    label="MEMBER CARD"
+                    size="small"
                     sx={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 2,
-                      background: "#fff",
-                      display: "grid",
-                      placeItems: "center",
-                      overflow: "hidden",
-                      flexShrink: 0,
+                      mt: 0.5,
+                      bgcolor: "rgba(255,255,255,0.12)",
+                      color: "#fff",
+                      border: "1px solid rgba(255,255,255,0.22)",
+                      fontWeight: 700,
+                      letterSpacing: 1,
                     }}
-                  >
-                    <Box
-                      component="img"
-                      src={systemInfo?.logo || quoraLogo}
-                      alt={`${systemInfo?.system_name || "Quora"} logo`}
-                      onError={(e) => {
-                        // a broken system logo URL falls back to the bundled Quora logo
-                        if (e.currentTarget.src !== quoraLogo) e.currentTarget.src = quoraLogo;
-                      }}
-                      sx={{ width: "100%", height: "100%", objectFit: "contain" }}
-                    />
-                  </Paper>
-                  <Box>
-                    <Typography variant="h6" fontWeight={700}>
-                      {systemInfo?.system_name || "Tutorial System"}
-                    </Typography>
-                    <Chip
-                      label="Student"
-                      size="small"
-                      sx={{
-                        mt: 0.5,
-                        bgcolor: "rgba(255,255,255,0.14)",
-                        color: "#fff",
-                        border: "1px solid rgba(255,255,255,0.2)",
-                      }}
-                    />
-                  </Box>
-                </Stack>
+                  />
+                </Box>
 
-                <Chip
-                  label="MEMBER CARD"
+                {/* Logo in the top-right corner */}
+                <Paper
+                  elevation={0}
                   sx={{
-                    bgcolor: "rgba(255,255,255,0.12)",
-                    color: "#fff",
-                    border: "1px solid rgba(255,255,255,0.22)",
-                    fontWeight: 700,
-                    letterSpacing: 1.2,
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    background: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    p: 0.5,
                   }}
-                />
+                >
+                  <Box
+                    component="img"
+                    src={systemInfo?.logo || quoraLogo}
+                    alt={`${systemInfo?.system_name || "Quora"} logo`}
+                    onError={(e) => {
+                      // a broken system logo URL falls back to the bundled Quora logo
+                      if (e.currentTarget.src !== quoraLogo) e.currentTarget.src = quoraLogo;
+                    }}
+                    sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  />
+                </Paper>
               </Box>
 
               <Grid container spacing={3} sx={{ mt: 0.5 }}>
@@ -369,7 +358,7 @@ const MembershipCardPage = () => {
                       {displayName}
                     </Typography>
                     <Typography variant="body2" color="rgba(255,255,255,0.8)" textAlign="center">
-                      {cardData.programme}
+                      {cardData.school || cardData.programme}
                     </Typography>
                   </Box>
                 </Grid>
@@ -377,10 +366,10 @@ const MembershipCardPage = () => {
                 <Grid item xs={12} md={8}>
                   <Grid container spacing={2}>
                     {[
-                      ["Student ID", cardData.studentIdDisplay || cardData.studentId],
-                      ["Programme", cardData.programme],
+                      ["Student No.", cardData.studentIdDisplay || cardData.studentId],
+                      ["School", cardData.school || cardData.programme],
                       ["Year of Study", cardData.yearOfStudy],
-                      ["Academic Year", cardData.academicYear],
+                      ["Academic Year / Term", `${cardData.academicYear} · ${cardData.term}`],
                     ].map(([label, value]) => (
                       <Grid item xs={12} sm={6} key={label}>
                         <Box
@@ -405,7 +394,7 @@ const MembershipCardPage = () => {
 
                   <Box sx={{ mt: 2.5 }}>
                     <Typography variant="subtitle2" sx={{ opacity: 0.88, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                      Enrolled Courses
+                      Subscribed Courses
                     </Typography>
                     <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 1 }}> 
                       {(cardData.courses?.length ? cardData.courses : [{ name: "No active course" }]).map((course) => (
@@ -429,7 +418,7 @@ const MembershipCardPage = () => {
               <Divider sx={{ my: 3, borderColor: "rgba(255,255,255,0.18)" }} />
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6}>
                   <Typography variant="caption" sx={{ opacity: 0.8, textTransform: "uppercase", letterSpacing: 1.2 }}>
                     Amount Paid
                   </Typography>
@@ -437,20 +426,12 @@ const MembershipCardPage = () => {
                     {formatCurrency(cardData.amountPaid)}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ opacity: 0.8, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                    Card No.
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700}>
-                    {cardData.cardNumber || cardData.studentId}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6}>
                   <Typography variant="caption" sx={{ opacity: 0.8, textTransform: "uppercase", letterSpacing: 1.2 }}>
                     Valid Until
                   </Typography>
                   <Typography variant="h6" fontWeight={700}>
-                    {cardData.validityText || formatDate(cardData.validUntil)}
+                    {cardData.validUntil ? formatDate(cardData.validUntil) : "No expiry set"}
                   </Typography>
                 </Grid>
               </Grid>
