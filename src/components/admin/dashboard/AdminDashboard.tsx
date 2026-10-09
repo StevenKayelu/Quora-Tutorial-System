@@ -6,6 +6,7 @@ import { useSystemInfo } from "../../../contexts/SystemInfoContext";
 import { Helmet } from "react-helmet-async";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { AdminRulesCard } from "../../shared/StudentRules";
 
 const AdminDashboard = () => {
   const { user: contextUser, accessToken } = useAuthContext();
@@ -74,6 +75,9 @@ const AdminDashboard = () => {
           </Typography>
           <Typography variant="body2">System: {systemInfo?.system_name}</Typography>
         </Paper>
+
+        {/* Student rules PDF shown on every student dashboard */}
+        <AdminRulesCard />
 
         {loading ? (
           <Box textAlign="center" py={5}>

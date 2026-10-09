@@ -30,6 +30,7 @@ import { useAuthContext } from "../../../utils/hooks/useCustomContext";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
 import ProtectedRoutes from "../../ProtectedRoutes";
 import FreeToExplore from "../shared/FreeToExplore";
+import { RulesBanner } from "../../shared/StudentRules";
 
 const USER_ACTIONS = [
   {
@@ -240,6 +241,9 @@ const UserDashboard = () => {
             </Typography>
           </Box>
         </Paper>
+
+        {/* ================= STUDENT RULES (uploaded by the admin) ================= */}
+        <RulesBanner />
 
         {/* ================= TERM ALERTS (ending / expired / next term) ================= */}
         {notifications.length > 0 && (

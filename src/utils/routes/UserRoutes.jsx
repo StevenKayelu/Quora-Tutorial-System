@@ -15,6 +15,7 @@ import Payments from "../../components/user/payments/Payments";
 import Contact from "../../components/user/contact/Contact";
 import MembershipCardPage from "../../components/user/MembershipCardPage";
 import AcademicProfilePrompt from "../../components/user/shared/AcademicProfilePrompt";
+import { StudentRulesPage } from "../../components/shared/StudentRules";
 
 const UserRoutes = () => {
   const routes = [
@@ -54,6 +55,10 @@ const UserRoutes = () => {
         {
           path: "card",
           element: <MembershipCardPage />,
+        },
+        {
+          path: "rules",
+          element: <StudentRulesPage />,
         },
         {
           path: "*",

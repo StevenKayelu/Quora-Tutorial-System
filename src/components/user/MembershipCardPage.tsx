@@ -19,12 +19,14 @@ import CardMembershipRoundedIcon from "@mui/icons-material/CardMembershipRounded
 import useAxiosInstance from "../../utils/config/axiosInstance";
 import { useSystemInfo } from "../../contexts/SystemInfoContext";
 import { useAuthContext } from "../../utils/hooks/useCustomContext";
+import { renderMembershipCardPng } from "../../utils/membershipCardImage";
 
 type MembershipCardData = {
   studentName: string;
   studentId: string;
   studentIdDisplay?: string;
   programme: string;
+  school?: string | null;
   yearOfStudy: string;
   academicYear: string;
   term: string;
@@ -65,6 +67,8 @@ const MembershipCardPage = () => {
   const [cardData, setCardData] = useState<MembershipCardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const fetchMembershipCard = async () => {
     try {
@@ -103,203 +107,62 @@ const MembershipCardPage = () => {
     return "Student";
   }, [authUser, cardData]);
 
-  const cardMarkup = useMemo(() => {
-    if (!cardData) return "";
+  // Photo and logo come through our API so the canvas can be exported
+  const loadCardImage = async (kind: "photo" | "logo") => {
+    try {
+      const res = await axiosInstance.get(`${API_BASE}/api/user-courses/membership-card/image/${kind}`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
+      return img;
+    } catch {
+      return null; // the card is still drawn, with initials / without a logo
+    }
+  };
 
-    const studentDetails = [
-      ["Student Name", cardData.studentName],
-      ["Programme", cardData.programme],
-      ["Student ID", cardData.studentIdDisplay || cardData.studentId],
-      ["Academic Year", cardData.academicYear],
-      ["Year of Study", cardData.yearOfStudy],
-      ["Amount Paid", formatCurrency(cardData.amountPaid)],
-      ["Card Number", cardData.cardNumber],
-      ["Valid Until", cardData.validityText || formatDate(cardData.validUntil)],
-    ];
-
-    const courseList = (cardData.courses || []).map((course) => course.name).join(" • ") || "No courses found";
-
-    return `<!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8" />
-          <title>Membership Card</title>
-          <style>
-            body {
-              margin: 0;
-              background: #edf3ff;
-              font-family: Arial, Helvetica, sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              padding: 32px;
-            }
-            .card {
-              width: 900px;
-              max-width: 100%;
-              border-radius: 28px;
-              overflow: hidden;
-              box-shadow: 0 16px 36px rgba(17, 64, 120, 0.18);
-              background: linear-gradient(135deg, #0d4c98 0%, #1976d2 38%, #42a5f5 100%);
-              color: white;
-            }
-            .top {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              padding: 28px 34px 10px;
-            }
-            .brand {
-              display: flex;
-              align-items: center;
-              gap: 12px;
-            }
-            .logo {
-              width: 46px;
-              height: 46px;
-              border-radius: 14px;
-              background: rgba(255,255,255,0.18);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-weight: 700;
-              font-size: 18px;
-            }
-            .system-name {
-              font-size: 22px;
-              font-weight: 700;
-            }
-            .badge {
-              text-transform: uppercase;
-              letter-spacing: 2px;
-              font-size: 12px;
-              opacity: 0.9;
-              border: 1px solid rgba(255,255,255,0.35);
-              border-radius: 999px;
-              padding: 8px 12px;
-            }
-            .body {
-              display: grid;
-              grid-template-columns: 1.2fr 2fr;
-              gap: 20px;
-              padding: 18px 34px 24px;
-              background: rgba(255,255,255,0.08);
-            }
-            .profile {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              gap: 12px;
-              background: rgba(255,255,255,0.08);
-              border-radius: 20px;
-              padding: 20px;
-              min-height: 260px;
-            }
-            .avatar {
-              width: 110px;
-              height: 110px;
-              border-radius: 50%;
-              background: rgba(255,255,255,0.16);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 36px;
-              font-weight: 700;
-              border: 3px solid rgba(255,255,255,0.5);
-            }
-            .meta {
-              width: 100%;
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 14px 18px;
-            }
-            .field {
-              display: flex;
-              flex-direction: column;
-              gap: 6px;
-            }
-            .label {
-              font-size: 11px;
-              letter-spacing: 0.9px;
-              opacity: 0.8;
-              text-transform: uppercase;
-            }
-            .value {
-              font-size: 15px;
-              font-weight: 700;
-              word-break: break-word;
-            }
-            .courses {
-              margin-top: 18px;
-              padding-top: 16px;
-              border-top: 1px solid rgba(255,255,255,0.18);
-            }
-            .courses-list {
-              margin-top: 8px;
-              font-size: 15px;
-              line-height: 1.6;
-              opacity: 0.96;
-            }
-            @media (max-width: 700px) {
-              .body {
-                grid-template-columns: 1fr;
-              }
-              .meta {
-                grid-template-columns: 1fr 1fr;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="top">
-              <div class="brand">
-                <div class="logo">${(systemInfo?.system_name || "Q").charAt(0).toUpperCase()}</div>
-                <div class="system-name">${systemInfo?.system_name || "Tutorial System"}</div>
-              </div>
-              <div class="badge">Student Membership</div>
-            </div>
-            <div class="body">
-              <div class="profile">
-                <div class="avatar">${(displayName || "S").charAt(0).toUpperCase()}</div>
-                <div style="font-size:22px; font-weight:700; text-align:center;">${cardData.studentName}</div>
-              </div>
-              <div>
-                <div class="meta">
-                  ${studentDetails
-                    .map(
-                      ([label, value]) => `
-                        <div class="field">
-                          <div class="label">${label}</div>
-                          <div class="value">${value || "N/A"}</div>
-                        </div>`
-                    )
-                    .join("")}
-                </div>
-                <div class="courses">
-                  <div class="label">Subscribed Courses</div>
-                  <div class="courses-list">${courseList}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>`;
-  }, [cardData, displayName, systemInfo]);
-
-  const handleDownloadMembershipCard = () => {
+  const handleDownloadMembershipCard = async () => {
     if (!cardData) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const [photo, logo] = await Promise.all([loadCardImage("photo"), loadCardImage("logo")]);
+      const blob = await renderMembershipCardPng({
+        systemName: systemInfo?.system_name || "Student Membership",
+        studentName: displayName,
+        studentId: cardData.studentIdDisplay || cardData.studentId,
+        school: cardData.school || cardData.programme,
+        yearOfStudy: cardData.yearOfStudy,
+        academicYear: cardData.academicYear,
+        term: cardData.term,
+        validUntil: cardData.validityText || `Valid until ${formatDate(cardData.validUntil)}`,
+        cardNumber: cardData.cardNumber,
+        amountPaid: formatCurrency(cardData.amountPaid),
+        courses: cardData.courses || [],
+        photo,
+        logo,
+      });
+      [photo, logo].forEach((img) => img && URL.revokeObjectURL(img.src));
 
-    const blob = new Blob([cardMarkup], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `membership-card-${cardData.studentId || "student"}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `membership-card-${cardData.studentId || "student"}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (err) {
+      console.error("membership card image error:", err);
+      setDownloadError("Could not create the card image. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -330,7 +193,7 @@ const MembershipCardPage = () => {
             variant="contained"
             startIcon={<DownloadRoundedIcon />}
             onClick={handleDownloadMembershipCard}
-            disabled={!cardData || loading}
+            disabled={!cardData || loading || downloading}
             sx={{
               borderRadius: 2,
               px: 2.5,
@@ -340,9 +203,15 @@ const MembershipCardPage = () => {
               fontWeight: 700,
             }}
           >
-            Download Membership Card
+            {downloading ? "Preparing image…" : "Download card (image)"}
           </Button>
         </Box>
+
+        {downloadError && (
+          <Alert severity="error" onClose={() => setDownloadError(null)}>
+            {downloadError}
+          </Alert>
+        )}
 
         {loading && (
           <Paper

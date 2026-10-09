@@ -8,6 +8,7 @@ import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
+import GavelRoundedIcon from "@mui/icons-material/GavelRounded";
 
 export const NAV_LINKS = {
   user: [
@@ -17,6 +18,7 @@ export const NAV_LINKS = {
     { name: "Payments", path: "/user/payments", icon: PaymentRoundedIcon },
     { name: "Contact", path: "/user/contact", icon: ContactSupportRoundedIcon },
     { name: "Membership Card", path: "/user/card", icon: CardMembershipRoundedIcon },
+    { name: "Rules", path: "/user/rules", icon: GavelRoundedIcon },
   ],
 
   admin: [
