@@ -284,10 +284,12 @@ const UserDashboard = () => {
               key={name}
               sx={{
                 borderRadius: 3,
-                border: `1px solid ${theme.palette.divider}`,
+                border: `1px solid ${theme.palette.primary.main}`,
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
                 boxShadow: "none",
-                transition: "box-shadow 0.2s, border-color 0.2s",
-                "&:hover": { boxShadow: 3, borderColor: "primary.main" },
+                transition: "box-shadow 0.2s, background-color 0.2s",
+                "&:hover": { boxShadow: 3, bgcolor: "primary.dark" },
               }}
             >
               <CardActionArea onClick={() => navigate(path)} sx={{ p: 2, minHeight: 76 }}>
@@ -301,19 +303,19 @@ const UserDashboard = () => {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "primary.main",
-                      bgcolor: alpha(theme.palette.primary.main, 0.12),
+                      color: "primary.contrastText",
+                      bgcolor: alpha(theme.palette.common.white, 0.18),
                     }}
                   >
                     <Icon />
                   </Box>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 700 }}>{name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: alpha(theme.palette.common.white, 0.85) }}>
                       {description}
                     </Typography>
                   </Box>
-                  <ChevronRightIcon sx={{ color: "primary.main", flexShrink: 0 }} />
+                  <ChevronRightIcon sx={{ color: "primary.contrastText", flexShrink: 0 }} />
                 </Stack>
               </CardActionArea>
             </Card>
