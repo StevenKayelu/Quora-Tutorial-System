@@ -1,30 +1,43 @@
 // Draws the membership card as a PNG at true ID-card size (ISO/IEC 7810 ID-1,
 // 85.6 x 54 mm) at 300 dpi, as a single one-sided card. The file is
 // tagged 300 dpi, so printing at "actual size" gives a real card-sized print.
+// The layout mirrors the on-screen card in MembershipCardPage.
 
 export type CardImageData = {
   systemName: string;
   studentName: string;
   studentId: string;
-  school: string;
+  programme: string;
   yearOfStudy: string;
   academicYear: string;
-  term: string;
-  validUntil: string;
   courses: Array<{ name: string; school?: string }>;
+  amountPaid: string; // already formatted, e.g. "ZMW 450.00"
+  paid: boolean;
+  cardNumber: string;
+  validUntil: string; // already formatted, e.g. "31 Dec 2026" or "N/A"
   photo: HTMLImageElement | null;
   logo: HTMLImageElement | null;
 };
+
+// Shared with the on-screen card so both look the same
+export const CARD_COLORS = {
+  blue: "#1b4fc6",
+  ink: "#1a2433",
+  label: "#8792a5",
+  line: "#e3e8f0",
+  pill: "#b9c6dc",
+  pillText: "#2b3a55",
+  soft: "#f3f6fc",
+  page: "#eef2f8",
+};
+export const CARD_TAGLINE = "EXCELLENCE IN EDUCATION";
 
 const DPI = 300;
 const W = Math.round((85.6 / 25.4) * DPI); // 1011
 const H = Math.round((54 / 25.4) * DPI); // 638
 const MARGIN = 40;
+const RADIUS = 28;
 const FONT = '"Public Sans", Arial, sans-serif';
-const BLUE_DARK = "#0d47a1";
-const BLUE = "#1976d2";
-const INK = "#1a2433";
-const MUTED = "#5f6b7a";
 
 const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
   ctx.beginPath();
@@ -34,6 +47,18 @@ const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+};
+
+// Letter spacing where the browser supports it (ignored elsewhere)
+const setSpacing = (ctx: CanvasRenderingContext2D, px: number) => {
+  (ctx as any).letterSpacing = `${px}px`;
+};
+
+const ellipsize = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(`${t}…`).width > maxWidth) t = t.slice(0, -1);
+  return `${t.trimEnd()}…`;
 };
 
 // Largest font size (down to min) that fits; ellipsis if it still doesn't
@@ -53,18 +78,77 @@ const fitText = (
     s -= 1;
     ctx.font = `${weight} ${s}px ${FONT}`;
   }
-  let t = text;
-  while (ctx.measureText(t).width > maxWidth && t.length > 1) t = t.slice(0, -1);
-  if (t !== text) t = `${t.slice(0, -1)}…`;
-  ctx.fillText(t, x, y);
+  ctx.fillText(ellipsize(ctx, text, maxWidth), x, y);
 };
 
-const field = (ctx: CanvasRenderingContext2D, label: string, value: string, x: number, y: number, maxWidth: number, size = 30) => {
-  ctx.fillStyle = MUTED;
-  ctx.font = `600 18px ${FONT}`;
-  ctx.fillText(label.toUpperCase(), x, y);
-  ctx.fillStyle = INK;
-  fitText(ctx, value || "-", x, y + size + 6, maxWidth, size);
+const breakLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+};
+
+// Wraps text into at most maxLines lines, shrinking the font down to min first
+const wrapText = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+  size: number,
+  weight: number,
+  min: number
+) => {
+  for (let s = size; s >= min; s--) {
+    ctx.font = `${weight} ${s}px ${FONT}`;
+    const lines = breakLines(ctx, text, maxWidth);
+    if (lines.length <= maxLines && lines.every((l) => ctx.measureText(l).width <= maxWidth)) {
+      return { lines, size: s };
+    }
+  }
+  ctx.font = `${weight} ${min}px ${FONT}`;
+  const all = breakLines(ctx, text, maxWidth);
+  const lines = all.slice(0, maxLines - 1).map((l) => ellipsize(ctx, l, maxWidth));
+  lines.push(ellipsize(ctx, all.slice(maxLines - 1).join(" "), maxWidth));
+  return { lines, size: min };
+};
+
+const drawLabel = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color = CARD_COLORS.label, size = 15) => {
+  ctx.fillStyle = color;
+  ctx.font = `600 ${size}px ${FONT}`;
+  setSpacing(ctx, 2);
+  ctx.fillText(text.toUpperCase(), x, y);
+  setSpacing(ctx, 0);
+};
+
+// Label, value and the thin divider underneath
+const drawField = (
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  size = 24,
+  weight = 600
+) => {
+  drawLabel(ctx, label, x, y);
+  ctx.fillStyle = CARD_COLORS.ink;
+  fitText(ctx, value || "N/A", x, y + 14 + size, width, size, weight);
+  ctx.strokeStyle = CARD_COLORS.line;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y + 28 + size);
+  ctx.lineTo(x + width, y + 28 + size);
+  ctx.stroke();
 };
 
 // Draws an image to cover the box (like CSS object-fit: cover)
@@ -78,131 +162,241 @@ const drawCover = (ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: numb
 const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "S";
 
-// Wraps course names into at most maxLines lines; the rest becomes "+N more"
-const courseLines = (ctx: CanvasRenderingContext2D, names: string[], maxWidth: number, maxLines: number) => {
-  const sep = "   •   ";
-  const lines: string[] = [];
-  let line = "";
-  let used = 0;
-  for (const name of names) {
-    const next = line ? line + sep + name : name;
-    if (ctx.measureText(next).width <= maxWidth) {
-      line = next;
-      used++;
-      continue;
+// Outlined course pills in at most maxRows rows; the rest becomes "+N more"
+const drawCoursePills = (
+  ctx: CanvasRenderingContext2D,
+  names: string[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxRows: number
+) => {
+  const h = 34;
+  const padX = 14;
+  const gap = 10;
+  ctx.font = `600 16px ${FONT}`;
+
+  if (!names.length) {
+    ctx.fillStyle = CARD_COLORS.label;
+    ctx.fillText("No active courses", x, y + 23);
+    return;
+  }
+
+  const widthOf = (t: string) => ctx.measureText(t).width + padX * 2;
+  const rowWidth = (row: string[]) => row.reduce((sum, t, i) => sum + widthOf(t) + (i ? gap : 0), 0);
+  const rows: string[][] = [[]];
+  let placed = 0;
+  for (const raw of names) {
+    const t = ellipsize(ctx, raw, maxWidth - padX * 2);
+    const row = rows[rows.length - 1];
+    if (!row.length || rowWidth(row) + gap + widthOf(t) <= maxWidth) {
+      row.push(t);
+    } else if (rows.length < maxRows) {
+      rows.push([t]);
+    } else {
+      break;
     }
-    if (lines.length + 1 >= maxLines) break;
-    lines.push(line || name);
-    line = line ? name : "";
-    used++;
+    placed++;
   }
-  if (line) lines.push(line);
-  const rest = names.length - used;
-  if (rest > 0) {
-    let last = lines.pop() || "";
-    const more = `   +${rest} more`;
-    while (last && ctx.measureText(last + more).width > maxWidth) last = last.slice(0, -1);
-    lines.push(last.trimEnd() + more);
+
+  let more = names.length - placed;
+  if (more > 0) {
+    const last = rows[rows.length - 1];
+    while (last.length && rowWidth(last) + gap + widthOf(`+${more} more`) > maxWidth) {
+      last.pop();
+      more++;
+    }
   }
-  return lines;
+
+  rows.forEach((row, i) => {
+    const top = y + i * (h + gap);
+    let left = x;
+    const items = i === rows.length - 1 && more > 0 ? [...row, `+${more} more`] : row;
+    items.forEach((t, j) => {
+      const w = widthOf(t);
+      const isMore = more > 0 && i === rows.length - 1 && j === items.length - 1;
+      roundRect(ctx, left, top, w, h, h / 2);
+      if (isMore) {
+        ctx.fillStyle = CARD_COLORS.soft;
+        ctx.fill();
+      }
+      ctx.strokeStyle = CARD_COLORS.pill;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = CARD_COLORS.pillText;
+      ctx.fillText(t, left + padX, top + 23);
+      left += w + gap;
+    });
+  });
 };
 
 const drawCard = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, oy: number) => {
   ctx.save();
   ctx.translate(ox, oy);
-  roundRect(ctx, 0, 0, W, H, 32);
+  roundRect(ctx, 0, 0, W, H, RADIUS);
   ctx.clip();
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
-  // Header: name on the left, logo in the top-right corner
-  const band = ctx.createLinearGradient(0, 0, W, 0);
-  band.addColorStop(0, BLUE_DARK);
-  band.addColorStop(1, BLUE);
-  ctx.fillStyle = band;
-  ctx.fillRect(0, 0, W, 124);
+  // ---- Left panel: logo, name, tagline, photo, MEMBER CARD ----
+  const LW = Math.round(W * 0.27);
+  const cx = LW / 2;
+  ctx.fillStyle = CARD_COLORS.blue;
+  ctx.fillRect(0, 0, LW, H);
 
-  const logoBox = 92;
-  const logoX = W - 32 - logoBox;
+  const logoR = 44;
+  const logoY = 84;
+  ctx.beginPath();
+  ctx.arc(cx, logoY, logoR + 6, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.fill();
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, logoY, logoR, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
   if (d.logo) {
-    ctx.save();
-    roundRect(ctx, logoX, 16, logoBox, logoBox, 18);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
     ctx.clip();
-    const s = Math.min((logoBox - 10) / d.logo.naturalWidth, (logoBox - 10) / d.logo.naturalHeight);
+    const box = logoR * 2 - 14;
+    const s = Math.min(box / d.logo.naturalWidth, box / d.logo.naturalHeight);
     const lw = d.logo.naturalWidth * s;
     const lh = d.logo.naturalHeight * s;
-    ctx.drawImage(d.logo, logoX + (logoBox - lw) / 2, 16 + (logoBox - lh) / 2, lw, lh);
-    ctx.restore();
-  }
-  const headerTextW = (d.logo ? logoX : W - 32) - 36 - 20;
-  ctx.fillStyle = "#ffffff";
-  fitText(ctx, d.systemName, 36, 66, headerTextW, 36);
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = `600 19px ${FONT}`;
-  ctx.fillText("STUDENT MEMBERSHIP CARD", 36, 100);
-
-  // Profile photo (initials when there is none)
-  const px = 32, py = 148, pw = 196, ph = 246;
-  ctx.save();
-  roundRect(ctx, px, py, pw, ph, 16);
-  ctx.clip();
-  if (d.photo) {
-    drawCover(ctx, d.photo, px, py, pw, ph);
-  } else {
-    ctx.fillStyle = "#e3f2fd";
-    ctx.fillRect(px, py, pw, ph);
-    ctx.fillStyle = BLUE;
-    ctx.font = `800 80px ${FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText(initials(d.studentName), px + pw / 2, py + ph / 2 + 28);
-    ctx.textAlign = "left";
+    ctx.drawImage(d.logo, cx - lw / 2, logoY - lh / 2, lw, lh);
   }
   ctx.restore();
-  ctx.strokeStyle = "#cfd8e3";
-  ctx.lineWidth = 2;
-  roundRect(ctx, px, py, pw, ph, 16);
-  ctx.stroke();
 
-  // Details
-  const dx = 256;
-  const dw = W - dx - 32;
-  const half = dw / 2;
-  ctx.fillStyle = INK;
-  fitText(ctx, d.studentName, dx, 186, dw, 36, 800);
-  field(ctx, "Student No.", d.studentId, dx, 226, half - 12, 28);
-  field(ctx, "Year of study", d.yearOfStudy, dx + half, 226, half, 28);
-  field(ctx, "School", d.school, dx, 300, dw, 26);
-  field(ctx, "Academic year", d.academicYear, dx, 374, half - 12, 26);
-  field(ctx, "Term", d.term, dx + half, 374, half, 26);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  const name = wrapText(ctx, d.systemName.toUpperCase(), LW - 36, 2, 30, 800, 20);
+  let y = 178;
+  name.lines.forEach((l) => {
+    ctx.fillText(l, cx, y);
+    y += Math.round(name.size * 1.15);
+  });
 
-  // Subscribed courses across the card
-  ctx.strokeStyle = "#e3e8f0";
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = `600 13px ${FONT}`;
+  setSpacing(ctx, 2);
+  const tagline = breakLines(ctx, CARD_TAGLINE, LW - 40);
+  y += 2;
+  tagline.slice(0, 2).forEach((l) => {
+    ctx.fillText(l, cx, y);
+    y += 19;
+  });
+  setSpacing(ctx, 0);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(32, 428);
-  ctx.lineTo(W - 32, 428);
+  ctx.moveTo(cx - 28, y + 4);
+  ctx.lineTo(cx + 28, y + 4);
   ctx.stroke();
-  ctx.fillStyle = MUTED;
-  ctx.font = `600 17px ${FONT}`;
-  ctx.fillText("SUBSCRIBED COURSES", 32, 460);
-  ctx.fillStyle = INK;
-  ctx.font = `600 22px ${FONT}`;
-  const names = (d.courses || []).map((c) => c.name).filter(Boolean);
-  const lines = names.length ? courseLines(ctx, names, W - 64, 2) : ["No active courses"];
-  lines.forEach((l, i) => ctx.fillText(l, 32, 494 + i * 32));
 
-  // Footer
-  ctx.fillStyle = "#e8f1fd";
-  ctx.fillRect(0, H - 70, W, 70);
-  ctx.fillStyle = BLUE_DARK;
-  fitText(ctx, d.validUntil, 32, H - 26, W * 0.5, 24);
-  ctx.textAlign = "right";
-  ctx.fillStyle = MUTED;
-  ctx.font = `500 17px ${FONT}`;
-  ctx.fillText("Valid only with an active subscription", W - 32, H - 28);
+  // Student photo (initials when there is none)
+  const avatarR = 64;
+  const avatarY = 420;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, avatarY, avatarR, 0, Math.PI * 2);
+  ctx.clip();
+  if (d.photo) {
+    drawCover(ctx, d.photo, cx - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillRect(cx - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 50px ${FONT}`;
+    ctx.fillText(initials(d.studentName), cx, avatarY + 18);
+  }
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, avatarY, avatarR, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  const pillW = 196;
+  const pillH = 44;
+  roundRect(ctx, cx - pillW / 2, 534, pillW, pillH, pillH / 2);
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 16px ${FONT}`;
+  setSpacing(ctx, 2);
+  ctx.fillText("MEMBER CARD", cx, 562);
+  setSpacing(ctx, 0);
   ctx.textAlign = "left";
+
+  // ---- Right panel: details ----
+  const RX = LW + 40;
+  const RW = W - 40 - RX;
+  const colGap = 32;
+  const colW = (RW - colGap) / 2;
+  const col2 = RX + colW + colGap;
+
+  drawField(ctx, "Student name", d.studentName, RX, 58, RW, 34, 800);
+  drawField(ctx, "Programme", d.programme, RX, 158, colW);
+  drawField(ctx, "Year of study", d.yearOfStudy, col2, 158, colW);
+  drawField(ctx, "Student ID", d.studentId, RX, 248, colW);
+  drawField(ctx, "Academic year", d.academicYear, col2, 248, colW);
+
+  drawLabel(ctx, "Enrolled courses", RX, 338);
+  drawCoursePills(ctx, (d.courses || []).map((c) => c.name).filter(Boolean), RX, 352, RW, 2);
+
+  // ---- Bottom strip: amount paid, PAID, card number, valid until ----
+  const stripY = 452;
+  const stripH = H - 40 - stripY;
+  const amountW = 400;
+  roundRect(ctx, RX, stripY, amountW, stripH, 16);
+  ctx.fillStyle = CARD_COLORS.blue;
+  ctx.fill();
+  drawLabel(ctx, "Amount paid", RX + 24, stripY + 44, "rgba(255,255,255,0.82)");
+
+  const badgeW = 104;
+  const badgeH = 78;
+  const badgeX = RX + amountW - 22 - badgeW;
+  ctx.fillStyle = "#ffffff";
+  fitText(ctx, d.amountPaid, RX + 24, stripY + 98, amountW - 48 - (d.paid ? badgeW + 16 : 0), 34, 800);
+  if (d.paid) {
+    const badgeY = stripY + (stripH - badgeH) / 2;
+    roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 12);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(badgeX + 40, badgeY + 26);
+    ctx.lineTo(badgeX + 49, badgeY + 35);
+    ctx.lineTo(badgeX + 65, badgeY + 18);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 18px ${FONT}`;
+    ctx.textAlign = "center";
+    setSpacing(ctx, 2);
+    ctx.fillText("PAID", badgeX + badgeW / 2, badgeY + 62);
+    setSpacing(ctx, 0);
+    ctx.textAlign = "left";
+  }
+
+  const infoX = RX + amountW + 16;
+  const infoW = W - 40 - infoX;
+  roundRect(ctx, infoX, stripY, infoW, stripH, 16);
+  ctx.fillStyle = CARD_COLORS.soft;
+  ctx.fill();
+  drawLabel(ctx, "Card no.", infoX + 20, stripY + 34, CARD_COLORS.label, 14);
+  ctx.fillStyle = CARD_COLORS.ink;
+  fitText(ctx, d.cardNumber || "N/A", infoX + 20, stripY + 64, infoW - 40, 22, 700);
+  drawLabel(ctx, "Valid until", infoX + 20, stripY + 98, CARD_COLORS.label, 14);
+  ctx.fillStyle = CARD_COLORS.ink;
+  fitText(ctx, d.validUntil || "N/A", infoX + 20, stripY + 128, infoW - 40, 22, 700);
 
   ctx.restore();
 };
@@ -257,7 +451,7 @@ export const renderMembershipCardPng = async (d: CardImageData): Promise<Blob> =
   // Thin outline to cut along
   ctx.strokeStyle = "#c7d2de";
   ctx.lineWidth = 2;
-  roundRect(ctx, MARGIN, MARGIN, W, H, 32);
+  roundRect(ctx, MARGIN, MARGIN, W, H, RADIUS);
   ctx.stroke();
 
   const png = await new Promise<Blob>((resolve, reject) =>
