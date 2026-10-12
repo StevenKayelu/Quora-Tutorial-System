@@ -16,7 +16,10 @@ import {
   useMediaQuery,
   useTheme,
   Stack,
-  CircularProgress
+  CircularProgress,
+  TextField,
+  InputAdornment,
+  Alert
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -42,6 +45,10 @@ export default function SubscriptionsTable() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
+  // Optional: what the student paid outside the system (shown on their card)
+  const [amountPaid, setAmountPaid] = useState("");
+  const [assignError, setAssignError] = useState("");
+  const [assigning, setAssigning] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
 
@@ -139,19 +146,35 @@ export default function SubscriptionsTable() {
     setSubToDelete(null);
   };
 
-  async function assignCourse() {
-    if (!selectedCourse || !selectedTerm) return;
+  const amountInvalid = amountPaid !== "" && (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0);
 
-    await axiosInstance.post(API_SUBSCRIPTIONS, {
-      user_id: selectedUser.user_id,
-      course_id: selectedCourse,
-      term_id: selectedTerm
-    });
-
+  function closeAssignDialog() {
     setOpen(false);
     setSelectedCourse("");
     setSelectedTerm("");
-    fetchSubscriptions();
+    setAmountPaid("");
+    setAssignError("");
+  }
+
+  async function assignCourse() {
+    if (!selectedCourse || !selectedTerm || amountInvalid) return;
+
+    setAssigning(true);
+    setAssignError("");
+    try {
+      await axiosInstance.post(API_SUBSCRIPTIONS, {
+        user_id: selectedUser.user_id,
+        course_id: selectedCourse,
+        term_id: selectedTerm,
+        amount_paid: amountPaid === "" ? null : Number(amountPaid)
+      });
+      closeAssignDialog();
+      fetchSubscriptions();
+    } catch (err) {
+      setAssignError(err?.response?.data?.message || "Could not assign the course. Please try again.");
+    } finally {
+      setAssigning(false);
+    }
   }
 
   async function updateStatus(subId, newStatus) {
@@ -331,7 +354,7 @@ export default function SubscriptionsTable() {
       )}
 
       {/* Assign Course Dialog */}
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs" fullScreen={isMobile}>
+      <Dialog open={open} onClose={closeAssignDialog} fullWidth maxWidth="xs" fullScreen={isMobile}>
         <DialogTitle>Assign Course</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>Assigning to: {selectedUser?.user_name}</DialogContentText>
@@ -368,18 +391,41 @@ export default function SubscriptionsTable() {
               </MenuItem>
             ))}
           </Select>
+
+          <TextField
+            fullWidth
+            type="number"
+            label="Amount paid (optional)"
+            value={amountPaid}
+            onChange={(e) => setAmountPaid(e.target.value)}
+            error={amountInvalid}
+            helperText={
+              amountInvalid
+                ? "Enter 0 or more"
+                : "Paid outside the system. Added to Amount Paid on the student's membership card."
+            }
+            InputProps={{ startAdornment: <InputAdornment position="start">ZMW</InputAdornment> }}
+            inputProps={{ min: 0, step: "0.01" }}
+            sx={{ mt: 2 }}
+          />
+
+          {assignError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {assignError}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2, flexDirection: isMobile ? "column" : "row" }}>
-          <Button fullWidth={isMobile} onClick={() => setOpen(false)}>
+          <Button fullWidth={isMobile} onClick={closeAssignDialog}>
             Cancel
           </Button>
           <Button
             variant="contained"
             fullWidth={isMobile}
-            disabled={!selectedCourse || !selectedTerm}
+            disabled={!selectedCourse || !selectedTerm || amountInvalid || assigning}
             onClick={assignCourse}
           >
-            Confirm Assignment
+            {assigning ? "Assigning…" : "Confirm Assignment"}
           </Button>
         </DialogActions>
       </Dialog>
