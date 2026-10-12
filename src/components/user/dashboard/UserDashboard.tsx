@@ -25,11 +25,12 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { useTheme, alpha } from "@mui/material/styles";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../../utils/hooks/useCustomContext";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
 import ProtectedRoutes from "../../ProtectedRoutes";
 import FreeToExplore from "../shared/FreeToExplore";
+import { FREE_TO_EXPLORE_ID } from "../shared/Notifications";
 import { RulesBanner } from "../../shared/StudentRules";
 
 const USER_ACTIONS = [
@@ -51,7 +52,18 @@ const UserDashboard = () => {
   const { user: contextUser, accessToken } = useAuthContext();
   const axiosInstance = useAxiosInstance()();
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
+
+  // A free-lesson notification opens the dashboard at Free to explore
+  useEffect(() => {
+    const state = location.state as { scrollTo?: string } | null;
+    if (state?.scrollTo !== FREE_TO_EXPLORE_ID) return;
+    const timer = setTimeout(() => {
+      document.getElementById(FREE_TO_EXPLORE_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [location.state]);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const API_SUBSCRIPTIONS = `${API_BASE}/api/subscriptions/users`;
@@ -323,7 +335,9 @@ const UserDashboard = () => {
         </Box>
 
         {/* ================= FREE TO EXPLORE (free lessons) ================= */}
-        <FreeToExplore />
+        <Box id={FREE_TO_EXPLORE_ID} sx={{ scrollMarginTop: 80 }}>
+          <FreeToExplore />
+        </Box>
 
       </Box>
     </ProtectedRoutes>

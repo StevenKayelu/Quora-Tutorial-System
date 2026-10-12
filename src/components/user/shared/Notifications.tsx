@@ -25,6 +25,8 @@ import { CATEGORY_META, ContentCategoryKey } from "./CourseContentUI";
 const API = `${import.meta.env.VITE_API_BASE_URL}/api/notifications`;
 const CHANGED_EVENT = "notifications-changed";
 const POLL_MS = 60_000;
+// Element id of the dashboard's Free to explore section
+export const FREE_TO_EXPLORE_ID = "free-to-explore";
 
 export type AppNotification = {
   id: number;
@@ -37,6 +39,7 @@ export type AppNotification = {
   item_id: number;
   is_read: number;
   created_at: string;
+  is_free?: number; // 1 = a free lesson, opened from Free to explore
 };
 
 const TYPE_TO_CATEGORY: Record<AppNotification["type"], ContentCategoryKey> = {
@@ -115,6 +118,11 @@ export const useNotifications = (limit = 20) => {
         .put(`${API}/${n.id}/read`)
         .catch((err) => console.error(err))
         .finally(() => window.dispatchEvent(new Event(CHANGED_EVENT)));
+    }
+    // Free lessons may not be in the student's courses: open Free to explore
+    if (Number(n.is_free) === 1) {
+      navigate("/user", { state: { scrollTo: FREE_TO_EXPLORE_ID, openedAt: Date.now() } });
+      return;
     }
     navigate("/user/my-courses", {
       state: {
