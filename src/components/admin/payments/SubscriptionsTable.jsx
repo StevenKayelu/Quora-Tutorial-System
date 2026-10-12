@@ -19,13 +19,35 @@ import {
   CircularProgress,
   TextField,
   InputAdornment,
-  Alert
+  Alert,
+  Avatar
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import SearchIcon from "@mui/icons-material/Search";
 import { DataGrid } from "@mui/x-data-grid";
 import { useEffect, useState } from "react";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
+
+const initialsOf = (name) =>
+  String(name || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "?";
+
+// Where the subscription came from: an online payment or an admin assignment
+const SourceChip = ({ source }) => (
+  <Chip
+    label={source === "payment" ? "Payment" : source === "admin" ? "Admin" : source || "-"}
+    size="small"
+    variant="outlined"
+    color={source === "payment" ? "success" : "primary"}
+    sx={{ height: 22, fontSize: 11, fontWeight: 600 }}
+  />
+);
 
 export default function SubscriptionsTable() {
   const theme = useTheme();
@@ -49,6 +71,7 @@ export default function SubscriptionsTable() {
   const [amountPaid, setAmountPaid] = useState("");
   const [assignError, setAssignError] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const [search, setSearch] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [subToDelete, setSubToDelete] = useState(null);
 
@@ -190,7 +213,13 @@ export default function SubscriptionsTable() {
       minWidth: 150,
       cellClassName: (params) => (params.row.status === "expired" ? "expired-cell" : "")
     },
-    { field: "term_number", headerName: "Term", width: 120 },
+    { field: "term_number", headerName: "Term", width: 90 },
+    {
+      field: "source",
+      headerName: "Source",
+      width: 110,
+      renderCell: ({ row }) => <SourceChip source={row.source} />
+    },
     {
       field: "expires_at",
       headerName: "Expires On",
@@ -208,6 +237,7 @@ export default function SubscriptionsTable() {
           value={row.status === "expired" ? "inactive" : row.status}
           onChange={(e) => updateStatus(row.subscription_id, e.target.value)}
           disabled={row.status === "expired"}
+          sx={{ fontSize: 13, height: 32, minWidth: 110 }}
         >
           <MenuItem value="active">Active</MenuItem>
           <MenuItem value="inactive">Inactive</MenuItem>
@@ -232,12 +262,18 @@ export default function SubscriptionsTable() {
           variant="outlined"
           startIcon={<DeleteOutlineIcon />}
           onClick={() => requestDelete(row.subscription_id)}
+          sx={{ textTransform: "none", fontWeight: 600 }}
         >
           Remove
         </Button>
       )
     }
   ];
+
+  const query = search.trim().toLowerCase();
+  const visibleUsers = query
+    ? groupedUsers.filter((user) => String(user.user_name || "").toLowerCase().includes(query))
+    : groupedUsers;
 
   return (
     <Box sx={{ width: "100%", overflowX: "hidden" }}>
@@ -246,42 +282,99 @@ export default function SubscriptionsTable() {
           <CircularProgress />
         </Box>
       ) : (
-        groupedUsers.map((user) => (
+        <>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ sm: "center" }}
+          justifyContent="space-between"
+          sx={{ mb: 2 }}
+        >
+          <TextField
+            size="small"
+            placeholder="Search students"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ width: { xs: "100%", sm: 320 } }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            {visibleUsers.length} of {groupedUsers.length} students
+          </Typography>
+        </Stack>
+
+        {visibleUsers.length === 0 && (
+          <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+            No students match your search
+          </Typography>
+        )}
+
+        {visibleUsers.map((user) => (
           <Accordion
             key={user.user_id}
-            sx={{ mb: 1.5, boxShadow: "none", border: `1px solid ${theme.palette.divider}` }}
+            disableGutters
+            sx={{
+              mb: 1,
+              boxShadow: "none",
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 2,
+              "&:before": { display: "none" },
+              "&.Mui-expanded": { borderColor: theme.palette.primary.light }
+            }}
           >
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+                <Avatar
+                  sx={{
+                    width: 34,
+                    height: 34,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    bgcolor: user.courses.length === 0 ? "grey.300" : "primary.main"
+                  }}
+                >
+                  {initialsOf(user.user_name)}
+                </Avatar>
                 <Typography
                   variant="subtitle2"
                   fontWeight="bold"
-                  color={user.courses.length === 0 ? "error" : "text.primary"}
+                  noWrap
+                  color={user.courses.length === 0 ? "text.secondary" : "text.primary"}
                 >
                   {user.user_name}
                 </Typography>
                 <Chip
-                  label={user.courses.length}
+                  label={user.courses.length === 1 ? "1 course" : `${user.courses.length} courses`}
                   size="small"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: 10 }}
-                  color={user.courses.length === 0 ? "error" : "default"}
+                  variant={user.courses.length === 0 ? "outlined" : "filled"}
+                  color={user.courses.length === 0 ? "default" : "primary"}
+                  sx={{ height: 22, fontSize: 11, fontWeight: 600, flexShrink: 0 }}
                 />
               </Stack>
             </AccordionSummary>
 
             <AccordionDetails sx={{ p: isMobile ? 1.5 : 2, pt: 0 }}>
-              <Button
-                variant="contained"
-                sx={{ mb: 2, textTransform: "none" }}
-                fullWidth
-                onClick={() => {
-                  setSelectedUser(user);
-                  setOpen(true);
-                }}
-              >
-                Assign New Course
-              </Button>
+              <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1.5 }}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddRoundedIcon />}
+                  sx={{ textTransform: "none", fontWeight: 700 }}
+                  fullWidth={isMobile}
+                  onClick={() => {
+                    setSelectedUser(user);
+                    setOpen(true);
+                  }}
+                >
+                  Assign course
+                </Button>
+              </Stack>
+
+              {user.courses.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 2 }}>
+                  No courses assigned yet
+                </Typography>
+              )}
 
               {isMobile ? (
                 <Stack spacing={1}>
@@ -313,6 +406,9 @@ export default function SubscriptionsTable() {
                           <MenuItem value="inactive">Inactive</MenuItem>
                         </Select>
                       </Stack>
+                      <Box sx={{ mb: 0.75 }}>
+                        <SourceChip source={course.source} />
+                      </Box>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Enrolled: {formatDate(course.subscribed_at)}
                       </Typography>
@@ -331,7 +427,7 @@ export default function SubscriptionsTable() {
                     </Box>
                   ))}
                 </Stack>
-              ) : (
+              ) : user.courses.length > 0 && (
                 <DataGrid
                   rows={user.courses}
                   columns={columns}
@@ -339,8 +435,12 @@ export default function SubscriptionsTable() {
                   hideFooter
                   disableRowSelectionOnClick
                   sx={{
-                    border: "none",
-                    "& .MuiDataGrid-cell": { fontSize: 13 },
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    "& .MuiDataGrid-columnHeaders": { bgcolor: "grey.50" },
+                    "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+                    "& .MuiDataGrid-cell": { fontSize: 13, display: "flex", alignItems: "center" },
                     "& .expired-cell": {
                       color: theme.palette.error.main,
                       fontWeight: "bold"
@@ -350,7 +450,8 @@ export default function SubscriptionsTable() {
               )}
             </AccordionDetails>
           </Accordion>
-        ))
+        ))}
+        </>
       )}
 
       {/* Assign Course Dialog */}

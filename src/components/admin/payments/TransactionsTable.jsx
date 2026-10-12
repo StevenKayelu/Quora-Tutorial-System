@@ -18,9 +18,35 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Tooltip
+  Tooltip,
+  Chip,
+  CircularProgress,
+  InputAdornment,
+  Stack,
+  TextField
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import SearchIcon from "@mui/icons-material/Search";
+
+const studentLabel = (row) =>
+  // user_id is the internal key; show the name and 7-digit student ID
+  row.u_user_id
+    ? `${[row.user_name, row.user_last_name].filter(Boolean).join(" ")} (${row.u_user_id})`
+    : String(row.user_id ?? "");
+
+const formatAmount = (amount) => `K ${Number(amount || 0).toFixed(2)}`;
+
+const STATUS_COLOR = { success: "success", completed: "success", pending: "warning", failed: "error" };
+
+const StatusChip = ({ status }) => (
+  <Chip
+    label={status || "unknown"}
+    size="small"
+    color={STATUS_COLOR[status] || "default"}
+    variant={STATUS_COLOR[status] ? "filled" : "outlined"}
+    sx={{ textTransform: "capitalize", fontWeight: 600 }}
+  />
+);
 
 export default function TransactionsTable() {
   const [snackbar, setSnackbar] = useState({
@@ -30,6 +56,8 @@ export default function TransactionsTable() {
   });
 
   const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
 
@@ -56,6 +84,8 @@ export default function TransactionsTable() {
       setRows(res.data || []);
     } catch (error) {
       console.error("Error fetching transactions:", error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -112,9 +142,30 @@ export default function TransactionsTable() {
   }
 
   const columns = [
-    { field: "transaction_id", headerName: "ID", flex: 1, minWidth: 100 },
-    { field: "amount", headerName: "Amount (K)", flex: 0.8 },
-    { field: "payment_status", headerName: "Status", flex: 0.8 },
+    { field: "transaction_id", headerName: "Transaction ID", flex: 1, minWidth: 140 },
+    {
+      field: "student",
+      headerName: "Student",
+      flex: 1.3,
+      minWidth: 180,
+      valueGetter: (value, row) => studentLabel(row),
+    },
+    {
+      field: "amount",
+      headerName: "Amount",
+      flex: 0.7,
+      minWidth: 110,
+      align: "right",
+      headerAlign: "right",
+      renderCell: ({ row }) => <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{formatAmount(row.amount)}</Typography>,
+    },
+    {
+      field: "payment_status",
+      headerName: "Status",
+      flex: 0.7,
+      minWidth: 120,
+      renderCell: ({ row }) => <StatusChip status={row.payment_status} />,
+    },
     {
       field: "created_at",
       headerName: "Date",
@@ -139,18 +190,63 @@ export default function TransactionsTable() {
     },
   ];
 
+  const query = search.trim().toLowerCase();
+  const visibleRows = query
+    ? rows.filter((row) =>
+        [row.transaction_id, studentLabel(row), row.payment_status].some((v) =>
+          String(v ?? "").toLowerCase().includes(query)
+        )
+      )
+    : rows;
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   if (rows.length === 0) {
-    return <Typography sx={{ textAlign: "center", p: 2 }}>No transactions found</Typography>;
+    return (
+      <Typography color="text.secondary" sx={{ textAlign: "center", py: 6 }}>
+        No transactions yet
+      </Typography>
+    );
   }
 
   return (
     <Box sx={{ width: "100%" }}>
-      {isMobile ? (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {rows.map((row) => {
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1}
+        alignItems={{ sm: "center" }}
+        justifyContent="space-between"
+        sx={{ mb: 2 }}
+      >
+        <TextField
+          size="small"
+          placeholder="Search by transaction ID, student or status"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ width: { xs: "100%", sm: 380 } }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+        />
+        <Typography variant="body2" color="text.secondary">
+          {visibleRows.length} of {rows.length} transactions
+        </Typography>
+      </Stack>
+
+      {visibleRows.length === 0 ? (
+        <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+          No transactions match your search
+        </Typography>
+      ) : isMobile ? (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {visibleRows.map((row) => {
             const id = row.transaction_id || row.id;
             return (
-              <Card key={id} variant="outlined">
+              <Card key={id} variant="outlined" sx={{ borderRadius: 2 }}>
                 <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
                     <Typography variant="caption" color="text.secondary">ID: {row.transaction_id}</Typography>
@@ -160,22 +256,11 @@ export default function TransactionsTable() {
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
-                        {/* user_id is the internal key; show the name and 7-digit student ID */}
-                        User: {row.u_user_id
-                          ? `${[row.user_name, row.user_last_name].filter(Boolean).join(" ")} (${row.u_user_id})`
-                          : row.user_id}
+                        {studentLabel(row)}
                       </Typography>
-                      <Typography variant="body1" fontWeight="bold">K {row.amount}</Typography>
+                      <Typography variant="body1" fontWeight="bold">{formatAmount(row.amount)}</Typography>
                     </Box>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        textTransform: "capitalize", 
-                        color: ["success", "completed"].includes(row.payment_status) ? "success.main" : "warning.main" 
-                      }}
-                    >
-                      {row.payment_status}
-                    </Typography>
+                    <StatusChip status={row.payment_status} />
                   </Box>
                   <Button 
                     variant="outlined" 
@@ -194,13 +279,21 @@ export default function TransactionsTable() {
         </Box>
       ) : (
         <DataGrid
-          rows={rows}
+          rows={visibleRows}
           columns={columns}
           getRowId={(row) => row.id || row.transaction_id}
           autoHeight
-          pageSizeOptions={[5, 10, 25]}
+          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+          pageSizeOptions={[10, 25, 50]}
           disableRowSelectionOnClick
-          sx={{ "& .MuiDataGrid-cell": { fontSize: 13 } }}
+          sx={{
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 2,
+            "& .MuiDataGrid-columnHeaders": { bgcolor: "grey.50" },
+            "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+            "& .MuiDataGrid-cell": { fontSize: 13, display: "flex", alignItems: "center" },
+          }}
         />
       )}
 
