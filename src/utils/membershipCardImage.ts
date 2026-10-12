@@ -338,7 +338,7 @@ const drawCard = (ctx: CanvasRenderingContext2D, d: CardImageData, ox: number, o
   const col2 = RX + colW + colGap;
 
   drawField(ctx, "Student name", d.studentName, RX, 58, RW, 34, 800);
-  drawField(ctx, "Programme", d.programme, RX, 158, colW);
+  drawField(ctx, "School", d.programme, RX, 158, colW);
   drawField(ctx, "Year of study", d.yearOfStudy, col2, 158, colW);
   drawField(ctx, "Student ID", d.studentId, RX, 248, colW);
   drawField(ctx, "Academic year", d.academicYear, col2, 248, colW);

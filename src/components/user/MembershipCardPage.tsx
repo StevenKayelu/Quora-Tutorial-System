@@ -450,7 +450,7 @@ const MembershipCardPage = () => {
                   <Box sx={{ gridColumn: "1 / -1" }}>
                     <CardField label="Student Name" value={displayName} large />
                   </Box>
-                  <CardField label="Programme" value={cardData.school || cardData.programme} />
+                  <CardField label="School" value={cardData.school || cardData.programme} />
                   <CardField label="Year of Study" value={cardData.yearOfStudy} />
                   <CardField label="Student ID" value={cardData.studentIdDisplay || cardData.studentId} />
                   <CardField label="Academic Year" value={academicYearText} />
