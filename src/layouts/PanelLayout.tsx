@@ -6,7 +6,7 @@ import Footer from "../components/shared/Footer";
 const PanelLayout = () => {
   return (
     <MainWrapper>
-      <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#e9ecef" }}>
+      <Box sx={{ display: "flex", width: '100%', minWidth: 0, minHeight: "100vh", bgcolor: "#e9ecef" }}>
 
         {/* Main content frame */}
         <Box

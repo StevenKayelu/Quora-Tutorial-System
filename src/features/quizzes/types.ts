@@ -1,4 +1,5 @@
 export type QuizSettings = {
+  audience_mode: 'subscribers' | 'all_students' | 'custom'; audience_include_subscribers: boolean;
   mode: 'practice' | 'examination'; duration_mode: 'manual' | 'automatic'; duration_minutes: number; duration_seconds?: number; question_seconds: number | null;
   question_count: number; pass_percentage: number; max_attempts: number;
   starts_at: string | null; ends_at: string | null; randomize_questions: boolean; randomize_options: boolean;
@@ -8,6 +9,7 @@ export type QuizSettings = {
   integrity_limit: number; integrity_action: 'warn' | 'terminate';
 };
 export const DEFAULT_SETTINGS: QuizSettings = {
+  audience_mode: 'subscribers', audience_include_subscribers: false,
   mode: 'practice', duration_mode: 'manual', duration_minutes: 30, question_seconds: null, question_count: 0, pass_percentage: 50,
   max_attempts: 1, starts_at: null, ends_at: null, randomize_questions: false, randomize_options: false,
   allow_backtracking: true, allow_early_submit: true, result_release: 'immediate', results_released: false,

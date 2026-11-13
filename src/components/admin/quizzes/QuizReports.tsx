@@ -52,7 +52,7 @@ export default function QuizReports() {
       <Button disabled={busy || !report} variant="outlined" onClick={() => perform(() => api.download(`/admin/${quizId}/report.pdf`, `quora-quiz-${quizId}-results.pdf`, filters))}>Download results PDF</Button>
       <Button disabled={!student || busy || query.isFetching} onClick={() => { const o = report?.override; setExtraTime(Number(o?.extra_time_seconds ?? 0) / 60); setExtraAttempts(Number(o?.extra_attempts ?? 0)); setReason(o?.reason ?? ''); setFullscreenExempt(Boolean(o?.fullscreen_exempt)); setIntegrityExempt(Boolean(o?.integrity_exempt)); setOverrideOpen(true); }}>Student time / retake override</Button>
       <TextField select size="small" label="Release publication" value={version} onChange={e => setVersion(e.target.value)} sx={{ minWidth: 180 }}><MenuItem value="">Latest publication</MenuItem>{report?.publications?.map(p => <MenuItem key={p.id} value={p.version}>Version {p.version}</MenuItem>)}</TextField>
-      <Button disabled={busy || !report?.publications.length || !options.data?.permissions.can_publish} variant="contained" onClick={() => { setError(''); setReleaseVersion(version); }}>Release results</Button>
+      <Button disabled={busy || !report?.publications.length || !options.data?.permissions.can_publish} variant="contained" onClick={() => { setError(''); setReleaseVersion(version || String(report?.publications[0].version)); }}>Release results</Button>
     </Stack>
     {query.isLoading && <Skeleton variant="rounded" height={300} />}
     {query.isError && <Alert severity="error">{quizError(query.error)}</Alert>}

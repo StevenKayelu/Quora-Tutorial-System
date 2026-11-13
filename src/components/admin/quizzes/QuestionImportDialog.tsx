@@ -62,6 +62,6 @@ export default function QuestionImportDialog({ open, courseId, courseName, avail
         <Typography variant="body2" sx={{ mt: 1 }}>Add option_c through option_h if needed. marks defaults to 1; explanation is optional. The Excel file includes instructions and a Course IDs reference sheet.</Typography>
       </AccordionDetails></Accordion>
     </Stack></DialogContent>
-    <DialogActions><Button disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy || !preview?.valid || Boolean(preview.errors.length) || tooMany} onClick={commit} variant="contained">{busy ? 'Please wait…' : `Import ${preview?.valid || ''} questions`}</Button></DialogActions>
+    <DialogActions><Button disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy || !preview?.valid || Boolean(preview.errors.length) || tooMany} onClick={commit} variant="contained">{busy ? 'Please wait…' : `Import ${preview?.valid || ''} ${preview?.valid === 1 ? 'question' : 'questions'}`}</Button></DialogActions>
   </Dialog>;
 }

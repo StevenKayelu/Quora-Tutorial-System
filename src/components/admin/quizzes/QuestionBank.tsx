@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Grid, MenuItem, Pagination, Paper, Radio, Stack, TextField, Typography } from '@mui/material';
+import { alpha, Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Grid, MenuItem, Pagination, Paper, Stack, Switch, TextField, Typography } from '@mui/material';
 import { BankQuestion } from '../../../features/quizzes/types';
 import { useQuizApi, quizError } from '../../../features/quizzes/api';
 import { minutesToSeconds, secondsToMinutes, formatDuration } from '../../../features/quizzes/timing';
 import QuestionImportDialog from './QuestionImportDialog';
 
 type QuestionInput = Omit<BankQuestion, 'id' | 'question_id' | 'version'>;
-const emptyQuestion = (courseId: number): QuestionInput => ({ course_id: courseId, topic: '', difficulty: 'medium', statement: '', explanation: '', image_url: '', marks: 1, negative_marks: 0, time_limit_seconds: null, options: [{ label: '', is_correct: true }, { label: '', is_correct: false }, { label: '', is_correct: false }, { label: '', is_correct: false }] });
+const emptyQuestion = (courseId: number): QuestionInput => ({ course_id: courseId, topic: '', difficulty: 'medium', statement: '', explanation: '', image_url: '', marks: 1, negative_marks: 0, time_limit_seconds: null, options: [{ label: '', is_correct: false }, { label: '', is_correct: false }, { label: '', is_correct: false }, { label: '', is_correct: false }] });
 
 export default function QuestionBank({ courseId, courseName, selected = [], onSelect }: { courseId: number; courseName?: string; selected?: BankQuestion[]; onSelect?: (questions: BankQuestion[]) => void }) {
   const api = useQuizApi(), cache = useQueryClient();
@@ -16,11 +16,14 @@ export default function QuestionBank({ courseId, courseName, selected = [], onSe
   const [error, setError] = useState(''), [saving, setSaving] = useState(false);
   const [importOpen, setImportOpen] = useState(false), [message, setMessage] = useState('');
   const query = useQuery({ queryKey: ['quiz-bank', api.scope, courseId, search, page], queryFn: () => api.get<{ items: BankQuestion[]; total: number }>('/bank', { course_id: courseId || undefined, search, page, limit: 10 }) });
+  const hasCorrectAnswer = editing?.options.filter(o => o.is_correct).length === 1;
   const save = async () => {
     if (!editing) return;
+    if (!hasCorrectAnswer) { setError('Select exactly one correct answer.'); return; }
     setSaving(true); setError('');
     try {
-      if (editingId) await api.put(`/bank/${editingId}`, editing); else await api.post('/bank', editing);
+      const question = editingId ? await api.put<BankQuestion>(`/bank/${editingId}`, editing) : await api.post<BankQuestion>('/bank', editing);
+      if (onSelect && selected.some(q => q.question_id === question.question_id)) onSelect(selected.map(q => q.question_id === question.question_id ? question : q));
       setEditing(null); await cache.invalidateQueries({ queryKey: ['quiz-bank'] });
     } catch (e) { setError(quizError(e)); } finally { setSaving(false); }
   };
@@ -58,18 +61,22 @@ export default function QuestionBank({ courseId, courseName, selected = [], onSe
           <Grid item xs={12} sm={6}><TextField fullWidth label="Topic" value={editing.topic} onChange={e => setEditing({ ...editing, topic: e.target.value })} /></Grid>
           <Grid item xs={12} sm={6}><TextField fullWidth select label="Difficulty" value={editing.difficulty} onChange={e => setEditing({ ...editing, difficulty: e.target.value as QuestionInput['difficulty'] })}>{['easy','medium','hard'].map(x => <MenuItem key={x} value={x}>{x}</MenuItem>)}</TextField></Grid>
         </Grid>
-        <Typography variant="subtitle2">Answer options · select one correct answer</Typography>
-        {editing.options.map((o, i) => <Stack direction="row" gap={1} key={i} alignItems="center">
-          <FormControlLabel label="" control={<Radio checked={o.is_correct} inputProps={{ 'aria-label': `Option ${i + 1} is correct` }} onChange={() => setEditing({ ...editing, options: editing.options.map((x, j) => ({ ...x, is_correct: j === i })) })} />} sx={{ mr: 0 }} />
-          <TextField fullWidth label={`Option ${i + 1}`} multiline value={o.label} onChange={e => setEditing({ ...editing, options: editing.options.map((x, j) => j === i ? { ...x, label: e.target.value } : x) })} />
-          <Button disabled={editing.options.length <= 2} onClick={() => setEditing({ ...editing, options: editing.options.filter((_, j) => j !== i) })}>Remove</Button>
-        </Stack>)}
-        <Button disabled={editing.options.length >= 8} onClick={() => setEditing({ ...editing, options: [...editing.options, { label: '', is_correct: false }] })}>Add option</Button>
+        <Box><Typography variant="subtitle2">Answer options</Typography><Typography variant="body2" color={hasCorrectAnswer ? 'text.secondary' : 'warning.main'}>Choose one correct answer. Turning on another switch clears the previous selection.</Typography></Box>
+        {editing.options.map((o, i) => <Paper variant="outlined" key={i} sx={theme => ({ p: 1.5, borderRadius: 2, borderColor: o.is_correct ? 'success.main' : 'divider', bgcolor: o.is_correct ? alpha(theme.palette.success.main, 0.06) : 'background.paper' })}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'center' }}>
+            <TextField disabled={saving} fullWidth label={`Option ${i + 1}`} multiline value={o.label} onChange={e => setEditing({ ...editing, options: editing.options.map((x, j) => j === i ? { ...x, label: e.target.value } : x) })} />
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ flexShrink: 0 }} gap={1}>
+              <FormControlLabel sx={{ m: 0 }} label={<Typography variant="body2" fontWeight={o.is_correct ? 700 : 400}>Correct answer</Typography>} control={<Switch disabled={saving} color="success" checked={o.is_correct} inputProps={{ role: 'switch', 'aria-label': `Mark option ${i + 1} as correct` }} onChange={(_, checked) => setEditing({ ...editing, options: editing.options.map((x, j) => ({ ...x, is_correct: checked && j === i })) })} />} />
+              <Button size="small" color="error" aria-label={`Remove option ${i + 1}`} disabled={saving || editing.options.length <= 2} onClick={() => setEditing({ ...editing, options: editing.options.filter((_, j) => j !== i) })}>Remove</Button>
+            </Stack>
+          </Stack>
+        </Paper>)}
+        <Button disabled={saving || editing.options.length >= 8} onClick={() => setEditing({ ...editing, options: [...editing.options, { label: '', is_correct: false }] })}>Add option</Button>
         <Grid container spacing={2}>{[['marks','Marks'],['negative_marks','Wrong-answer deduction'],['time_limit_seconds','Question minutes (optional)']].map(([key, label]) => <Grid item xs={12} sm={4} key={key}><TextField fullWidth type="number" label={label} value={key === 'time_limit_seconds' ? secondsToMinutes(editing.time_limit_seconds) : editing[key] ?? ''} onChange={e => setEditing({ ...editing, [key]: key === 'time_limit_seconds' ? minutesToSeconds(e.target.value) : e.target.value === '' ? null : Number(e.target.value) })} helperText={key === 'time_limit_seconds' ? 'Leave blank to use the quiz default.' : ''} /></Grid>)}</Grid>
         <TextField label="Explanation" multiline minRows={2} value={editing.explanation} onChange={e => setEditing({ ...editing, explanation: e.target.value })} />
         <TextField label="Image URL (optional, HTTPS)" value={editing.image_url || ''} onChange={e => setEditing({ ...editing, image_url: e.target.value })} helperText="Plain text and Unicode mathematical symbols are supported. Images must use a trusted HTTPS host." />
       </Stack></DialogContent>}
-      <DialogActions><Button disabled={saving} onClick={() => setEditing(null)}>Cancel</Button><Button disabled={saving} variant="contained" onClick={save}>{saving ? 'Saving…' : 'Save question'}</Button></DialogActions>
+      <DialogActions><Button disabled={saving} onClick={() => setEditing(null)}>Cancel</Button><Button disabled={saving || !hasCorrectAnswer} variant="contained" onClick={save}>{saving ? 'Saving…' : 'Save question'}</Button></DialogActions>
     </Dialog>
   </Stack>;
 }

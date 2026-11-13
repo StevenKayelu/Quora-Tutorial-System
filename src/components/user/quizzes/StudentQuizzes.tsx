@@ -26,7 +26,7 @@ export default function StudentQuizzes() {
     </Stack>
     {query.isLoading && <Grid container spacing={2}>{[1,2,3].map(i => <Grid item xs={12} md={4} key={i}><Skeleton variant="rounded" height={250} /></Grid>)}</Grid>}
     {query.isError && <Alert severity="error" action={<Button onClick={() => query.refetch()}>Retry</Button>}>{quizError(query.error)}</Alert>}
-    {!query.isLoading && !query.isError && !items.length && <Alert severity="info">No quizzes match this view. Published quizzes appear here when assigned to your active course subscription.</Alert>}
+    {!query.isLoading && !query.isError && !items.length && <Alert severity="info">No quizzes match this view. Try another filter or ask your tutor about upcoming quizzes.</Alert>}
     <Grid container spacing={2}>{items.map(q => {
       const status = quizAvailability(q, now);
       return <Grid item xs={12} sm={6} lg={4} key={q.id}><Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3 }}>

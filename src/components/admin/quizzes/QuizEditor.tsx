@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Grid, MenuItem, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Grid, MenuItem, Paper, Skeleton, Stack, Switch, TextField, Typography } from '@mui/material';
 import { BankQuestion, DEFAULT_SETTINGS, QuizDetail, QuizSettings } from '../../../features/quizzes/types';
 import { formatQuizDate, quizError, useQuizApi } from '../../../features/quizzes/api';
 import QuestionBank from './QuestionBank';
@@ -10,9 +10,10 @@ import ConfirmActionDialog from '../../shared/ConfirmActionDialog';
 import QuizPageHeader from '../../../features/quizzes/QuizPageHeader';
 import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import QuizAudienceEditor from './QuizAudienceEditor';
 
 type Option = { id: number; label: string };
-export type QuizOptions = { courses: Option[]; schools: Option[]; years: Option[]; students: Option[]; permissions: { can_manage: number; can_publish: number; can_results: number } };
+export type QuizOptions = { courses: (Option & { school_ids?: number[] })[]; schools: Option[]; years: Option[]; students: Option[]; permissions: { can_manage: number; can_publish: number; can_results: number } };
 const localDate = (iso: string | null) => {
   if (!iso) return '';
   const date = new Date(iso);
@@ -27,6 +28,7 @@ export default function QuizEditor() {
   const [error, setError] = useState(''), [saving, setSaving] = useState(false), [preview, setPreview] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pendingCourseId, setPendingCourseId] = useState<number | null>(null);
+  const [editOpen, setEditOpen] = useState(false), [focusAudience, setFocusAudience] = useState(false);
   const options = useQuery({ queryKey: ['quiz-options', api.scope], queryFn: () => api.get<QuizOptions>('/options') });
   const query = useQuery({ queryKey: ['admin-quiz', api.scope, quizId], queryFn: () => api.get<QuizDetail>(`/admin/${quizId}`), enabled: Boolean(quizId) });
   useEffect(() => {
@@ -36,7 +38,32 @@ export default function QuizEditor() {
       setQuestions(q.questions); setAssignments(q.assignments);
     }
   }, [query.data]);
-  const readOnly = !options.data?.permissions.can_manage || Boolean(quizId && query.data?.status !== 'draft');
+  const canManage = Boolean(options.data?.permissions.can_manage);
+  const locked = Boolean(quizId && query.data && query.data.status !== 'draft');
+  const canEnableEditing = canManage && locked && (query.data?.status !== 'published' || Boolean(options.data?.permissions.can_publish));
+  const readOnly = !canManage || Boolean(quizId && query.data?.status !== 'draft');
+  const audienceLockReason = !options.data ? undefined : !canManage ? 'Your account has view-only quiz access. An administrator with editing permission can change the audience.' : locked ? `This quiz is ${query.data?.status}. Return it to draft to change the audience.${canEnableEditing ? '' : ' Publishing permission is also required for a published quiz.'}` : undefined;
+  useEffect(() => {
+    if (!focusAudience || readOnly || saving || editOpen) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById('quiz-audience-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('quiz-audience-mode')?.focus({ preventScroll: true });
+      setFocusAudience(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusAudience, readOnly, saving, editOpen]);
+  const enableEditing = async () => {
+    if (!quizId || !canEnableEditing || saving) return;
+    setSaving(true); setError('');
+    try {
+      await api.post(`/admin/${quizId}/actions/draft`);
+      await cache.invalidateQueries({ queryKey: ['admin-quizzes'] });
+      const refreshed = await query.refetch();
+      if (refreshed.isError) throw refreshed.error;
+      if (refreshed.data?.status !== 'draft') throw new Error('The quiz is still locked. Refresh and try again.');
+      setEditOpen(false); setFocusAudience(true); setSaved(false);
+    } catch (e) { setError(quizError(e)); } finally { setSaving(false); }
+  };
   const change = <K extends keyof QuizSettings>(key: K, value: QuizSettings[K]) => setSettings(s => ({ ...s, [key]: value,
     ...(key === 'question_seconds' && value ? { allow_backtracking: false } : {}),
     ...(key === 'allow_review' && !value ? { show_question_outcomes: false, show_correct_answers: false, show_explanations: false, allow_pdf_download: false } : {}),
@@ -79,22 +106,22 @@ export default function QuizEditor() {
   ];
   return <Box sx={{ width: '100%', minWidth: 0 }}>
     <QuizPageHeader title={quizId ? 'Quiz details' : 'Create quiz'} backTo="/admin/quizzes" actions={<Button variant="outlined" disabled={!questions.length} onClick={() => setPreview(true)}>Preview</Button>} />
-    {quizId && query.data?.status !== 'draft' && <Alert severity="info" sx={{ mb: 2 }}>This quiz is {query.data?.status}. Return it to draft from the quiz list to edit and publish a new version. Historical attempts retain their original questions, rules and scores.</Alert>}
+    {locked && <Alert severity="info" sx={{ mb: 2 }} action={canEnableEditing ? <Button disabled={saving} size="small" onClick={() => { setError(''); setEditOpen(true); }}>Edit quiz</Button> : undefined}>This quiz is {query.data?.status}. Return it to draft to edit, then publish a new version. Existing attempts and results are preserved.</Alert>}
     {options.data && !options.data.permissions.can_manage && <Alert severity="info" sx={{ mb: 2 }}>Your quiz permissions allow viewing only on this screen.</Alert>}
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     {saved && <Alert severity="success" sx={{ mb: 2 }}>Draft saved. Publish or schedule it from the quiz list when ready.</Alert>}
     <Box component="fieldset" disabled={readOnly || saving} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
       <Stack spacing={3}>
-        <Paper variant="outlined" sx={{ p: 3 }}><Stack spacing={2}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}><Stack spacing={2}>
           <Typography variant="h6">Quiz information</Typography>
           <TextField label="Quiz title" value={title} onChange={e => setTitle(e.target.value)} required />
           <TextField select label="Course" value={courseId || ''} onChange={e => {
             const next = Number(e.target.value);
-            if (questions.length) setPendingCourseId(next); else setCourseId(next);
+            if (questions.length) setPendingCourseId(next); else { setCourseId(next); setAssignments(a => ({ ...a, school_ids: [], study_year_ids: [] })); }
           }} required>{options.data?.courses.map(c => <MenuItem key={c.id} value={c.id}>{c.label}</MenuItem>)}</TextField>
           <TextField label="Description and student instructions" multiline minRows={3} value={description} onChange={e => setDescription(e.target.value)} />
         </Stack></Paper>
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h6" gutterBottom>Timing & scoring</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}><TextField fullWidth select label="Mode" value={settings.mode} onChange={e => change('mode', e.target.value as QuizSettings['mode'])}><MenuItem value="practice">Practice</MenuItem><MenuItem value="examination">Examination</MenuItem></TextField></Grid>
@@ -102,11 +129,11 @@ export default function QuizEditor() {
             <Grid item xs={12} sm={6}><TextField fullWidth type="number" label="Minutes per question" value={secondsToMinutes(settings.question_seconds)} inputProps={{ min: 0, step: 0.25 }} helperText="Default for questions without an individual limit. For example, 0.5 means 30 seconds." onChange={e => change('question_seconds', minutesToSeconds(e.target.value))} /></Grid>
             <Grid item xs={12} sm={6}><TextField fullWidth type="number" label="Overall duration (minutes)" disabled={settings.duration_mode === 'automatic'} value={settings.duration_mode === 'automatic' ? timing.maximum_seconds == null ? '' : secondsToMinutes(timing.maximum_seconds) : settings.duration_minutes} helperText={settings.duration_mode === 'automatic' ? 'Calculated as you select questions and change their time limits.' : 'The earlier of the overall and question deadlines takes priority.'} onChange={e => change('duration_minutes', Number(e.target.value))} /></Grid>
             {([
-              ['question_count', 'Number of questions', 'Enter how many questions each student answers. Leave blank to use all selected questions. Extra selected questions form a random pool.'],
-              ['max_attempts', 'Allowed attempts', 'Individual retakes can be granted from the results screen.'],
-              ['pass_percentage', 'Passing percentage', 'A score equal to this value passes.'],
+              ['question_count', 'Number of questions', 'Leave blank for all selected questions. Extra questions form a random pool.'],
+              ['max_attempts', 'Allowed attempts', 'Retakes can be granted from Results.'],
+              ['pass_percentage', 'Passing percentage', ''],
             ] as const).map(([key, label, help]) => <Grid item xs={12} sm={6} key={key}><TextField fullWidth type="number" label={label} value={key === 'question_count' ? settings.question_count || '' : settings[key] ?? ''} inputProps={key === 'question_count' ? { min: 1, max: 500, step: 1 } : {}} helperText={help} onChange={e => change(key, Number(e.target.value))} /></Grid>)}
-            {(['starts_at','ends_at'] as const).map(key => <Grid item xs={12} sm={6} key={key}><TextField fullWidth type="datetime-local" label={key === 'starts_at' ? 'Opens (your local time)' : 'Closes (your local time)'} InputLabelProps={{ shrink: true }} value={localDate(settings[key])} onChange={e => change(key, e.target.value ? new Date(e.target.value).toISOString() : null)} helperText="Stored in UTC and displayed in each student’s local time." /></Grid>)}
+            {(['starts_at','ends_at'] as const).map(key => <Grid item xs={12} sm={6} key={key}><TextField fullWidth type="datetime-local" label={key === 'starts_at' ? 'Opens (your local time)' : 'Closes (your local time)'} InputLabelProps={{ shrink: true }} value={localDate(settings[key])} onChange={e => change(key, e.target.value ? new Date(e.target.value).toISOString() : null)} helperText={key === 'starts_at' ? 'Optional. Leave blank to open when published.' : 'Optional closing deadline.'} /></Grid>)}
             <Grid item xs={12} sm={6}><TextField fullWidth select label="Result release" value={settings.result_release} onChange={e => change('result_release', e.target.value as QuizSettings['result_release'])}><MenuItem value="immediate">Immediately after submission</MenuItem><MenuItem value="after_close">After closing date</MenuItem><MenuItem value="manual">Administrator releases results</MenuItem></TextField></Grid>
           </Grid>
           <Alert severity={settings.duration_mode === 'automatic' && (!timing.can_calculate || timing.maximum_seconds > 86400 || timing.missing_questions > 0) ? 'warning' : 'info'} sx={{ mt: 2 }}>
@@ -127,14 +154,14 @@ export default function QuizEditor() {
           </Grid>
           {settings.integrity_action === 'terminate' && <Alert severity="warning" sx={{ mt: 2 }}>Students are told this policy before starting. Consider accessibility exemptions and the effect of ordinary browser interruptions.</Alert>}
         </AccordionDetails></Accordion>
-        <Accordion disableGutters variant="outlined"><AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography fontWeight={600}>Who can take this quiz?</Typography></AccordionSummary><AccordionDetails><Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>All active subscribers to this course can take it. Use these optional filters to limit access.</Typography>
-          <Stack spacing={2}>{([
-            ['user_ids', 'Students', options.data?.students ?? []],
-            ['school_ids', 'Schools', options.data?.schools ?? []],
-            ['study_year_ids', 'Study years', options.data?.years ?? []],
-          ] as [keyof typeof assignments, string, Option[]][]).map(([key, label, choices]) => <Autocomplete key={key} multiple options={choices} value={choices.filter(o => assignments[key].includes(o.id))} getOptionLabel={o => o.label} isOptionEqualToValue={(a,b) => a.id === b.id} onChange={(_, values) => setAssignments(a => ({ ...a, [key]: values.map(o => o.id) }))} renderInput={params => <TextField {...params} label={label} />} />)}</Stack>
-        </AccordionDetails></Accordion>
-        <Paper variant="outlined" sx={{ p: 3 }}><Typography variant="h6" gutterBottom>Selected questions ({questions.length}{settings.question_count ? ` / ${settings.question_count} required` : ''})</Typography>
+      </Stack>
+    </Box>
+    <Box id="quiz-audience-section" sx={{ my: 3 }}>
+      <QuizAudienceEditor courseId={courseId} settings={settings} assignments={assignments} options={options.data} readOnly={readOnly || saving} readOnlyReason={audienceLockReason} onEdit={canEnableEditing ? () => { setError(''); setEditOpen(true); } : undefined} editDisabled={saving} onPolicyChange={policy => setSettings(s => ({ ...s, ...policy }))} onAssignmentsChange={setAssignments} />
+    </Box>
+    <Box component="fieldset" disabled={readOnly || saving} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
+      <Stack spacing={3}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}><Typography variant="h6" gutterBottom>Selected questions ({questions.length}{settings.question_count ? ` / ${settings.question_count} required` : ''})</Typography>
           <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>{settings.question_count ? `${settings.question_count} questions sampled from this pool. Marks depend on the selected questions.` : `${questions.reduce((n,q) => n + Number(q.marks), 0)} total marks.`}</Typography>
           <Stack spacing={1}>{questions.map((q,i) => <Stack key={q.id} direction="row" flexWrap="wrap" alignItems="center" gap={1}>
             <Typography sx={{ flex: '1 1 200px', minWidth: 0, overflowWrap: 'anywhere' }}>{i + 1}. {q.statement.slice(0, 150)} <Chip size="small" label={`v${q.version}`} /></Typography>
@@ -153,7 +180,11 @@ export default function QuizEditor() {
       <Typography variant="subtitle1" sx={{ mt: 2 }}>Student email notifications</Typography>
       <Typography variant="body2">{query.data.emails.map(e => `${e.count} ${e.status}`).join(' · ') || 'Emails are queued when you publish.'}</Typography>
     </AccordionDetails></Accordion>}
-    <ConfirmActionDialog open={pendingCourseId !== null} title="Change course?" confirmLabel="Change course" onClose={() => setPendingCourseId(null)} onConfirm={() => { if (pendingCourseId !== null) { setCourseId(pendingCourseId); setQuestions([]); setPendingCourseId(null); } }}><Typography>Selected questions will be removed from this draft. Your question bank is kept.</Typography></ConfirmActionDialog>
+    <ConfirmActionDialog open={pendingCourseId !== null} title="Change course?" confirmLabel="Change course" onClose={() => setPendingCourseId(null)} onConfirm={() => { if (pendingCourseId !== null) { setCourseId(pendingCourseId); setQuestions([]); setAssignments(a => ({ ...a, school_ids: [], study_year_ids: [] })); setPendingCourseId(null); } }}><Typography>Selected questions and school filters will be cleared. Your question bank and individual student selections are kept.</Typography></ConfirmActionDialog>
+    <ConfirmActionDialog open={editOpen} title="Enable quiz editing?" confirmLabel="Return to draft" loading={saving} error={error} onClose={() => { setEditOpen(false); setError(''); }} onConfirm={enableEditing}>
+      <Typography sx={{ mb: 2 }}>Return “{query.data?.title}” to draft to change its audience and settings. Save and publish a new version when ready.</Typography>
+      <Alert severity="info">New attempts will be paused until you publish again. Existing attempts and results keep their original rules.</Alert>
+    </ConfirmActionDialog>
     <Dialog open={preview} onClose={() => setPreview(false)} maxWidth="md" fullWidth><DialogTitle>{title || 'Quiz preview'}</DialogTitle><DialogContent><Typography color="text.secondary" gutterBottom>Administrator preview · correct answers are marked.</Typography><Stack spacing={3}>{questions.map((q,i) => <Box key={q.id}><Typography fontWeight={600} sx={{ whiteSpace: 'pre-wrap' }}>{i+1}. {q.statement}</Typography>{q.image_url && <Box component="img" src={q.image_url} referrerPolicy="no-referrer" alt="Question illustration" sx={{ maxWidth: '100%', maxHeight: 250 }} />}{q.options.map((o,j) => <Alert key={j} icon={false} severity={o.is_correct ? 'success' : 'info'} sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{o.label}{o.is_correct ? ' ✓' : ''}</Alert>)}{q.explanation && <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{q.explanation}</Typography>}</Box>)}</Stack></DialogContent><DialogActions><Button onClick={() => setPreview(false)}>Close preview</Button></DialogActions></Dialog>
   </Box>;
 }
