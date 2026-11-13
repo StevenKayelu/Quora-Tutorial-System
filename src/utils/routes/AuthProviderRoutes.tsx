@@ -1,4 +1,4 @@
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import AdminRoutes from "./AdminRoutes";
 import UserRoutes from "./UserRoutes";
 import PageNotFound from "../../components/PageNotFound";
@@ -12,7 +12,7 @@ import TermsAndConditions from "../../pages/Terms_Conditions";
 import { useAuthContext } from "../hooks/useCustomContext";
 
 const AuthProviderRoutes = () => {
-  const { isAuth, isLoading } = useAuthContext();
+  const { isLoading } = useAuthContext();
 
   // Optionally show a loader while checking auth state
   if (isLoading) return null;
@@ -31,11 +31,11 @@ const AuthProviderRoutes = () => {
       {/* Protected Routes */}
       <Route
         path="admin/*"
-        element={isAuth ? <AdminRoutes /> : <Navigate to="/login" replace />}
+        element={<AdminRoutes />}
       />
       <Route
         path="user/*"
-        element={isAuth ? <UserRoutes /> : <Navigate to="/login" replace />}
+        element={<UserRoutes />}
       />
 
       {/* Catch-all */}

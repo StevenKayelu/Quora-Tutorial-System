@@ -18,6 +18,7 @@ import {
   NotificationsNoneRounded as BellIcon,
   DoneAll as DoneAllIcon,
   ChevronRight,
+  QuizRounded,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import useAxiosInstance from "../../../utils/config/axiosInstance";
@@ -29,7 +30,7 @@ const POLL_MS = 60_000;
 
 export type AppNotification = {
   id: number;
-  type: "video" | "note" | "test" | "tutorial";
+  type: "video" | "note" | "test" | "tutorial" | "quiz";
   title: string;
   message: string;
   school_id: number | null;
@@ -40,7 +41,7 @@ export type AppNotification = {
   created_at: string;
 };
 
-const TYPE_TO_CATEGORY: Record<AppNotification["type"], ContentCategoryKey> = {
+const TYPE_TO_CATEGORY: Record<Exclude<AppNotification["type"], 'quiz'>, ContentCategoryKey> = {
   video: "videos",
   note: "notes",
   test: "tests",
@@ -117,6 +118,10 @@ export const useNotifications = (limit = 20) => {
         .catch((err) => console.error(err))
         .finally(() => window.dispatchEvent(new Event(CHANGED_EVENT)));
     }
+    if (n.type === 'quiz') {
+      navigate(`/user/quizzes/${n.item_id}`);
+      return;
+    }
     navigate("/user/my-courses", {
       state: {
         schoolId: n.school_id,
@@ -143,7 +148,7 @@ const NotificationRow = ({
   onClick: () => void;
   dense?: boolean;
 }) => {
-  const meta = CATEGORY_META[TYPE_TO_CATEGORY[n.type]];
+  const meta = n.type === 'quiz' ? { icon: QuizRounded, bg: '#eef2ff', color: '#07278f' } : CATEGORY_META[TYPE_TO_CATEGORY[n.type]];
   const Icon = meta.icon;
   const unread = !n.is_read;
 

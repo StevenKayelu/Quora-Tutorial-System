@@ -42,6 +42,12 @@ import FreeToExplore from "../shared/FreeToExplore";
 
 const USER_ACTIONS = [
   {
+    name: "Quizzes & Exams",
+    path: "/user/quizzes",
+    description: "Open assigned quizzes and view your results",
+    Icon: CheckCircleIcon,
+  },
+  {
     name: "My Courses",
     path: "/user/my-courses",
     description: "Continue your enrolled courses",
