@@ -14,6 +14,9 @@ const theme = createTheme({
     },
   },
   components: {
+    MuiDialog: { styleOverrides: { paper: { borderRadius: 16 } } },
+    MuiDialogTitle: { styleOverrides: { root: { fontWeight: 700 } } },
+    MuiDialogActions: { styleOverrides: { root: { padding: '16px 24px', gap: 8 } } },
     MuiTextField: {
       variants: [
         {

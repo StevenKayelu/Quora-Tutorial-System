@@ -21,11 +21,12 @@ const ProtectedRoutes = ({ allowedRoles, children }: ProtectedRoutesProps) => {
   /* ================= NOT AUTHENTICATED ================= */
 
   if (!isAuth || !user) {
+    const destination = location.pathname + location.search + location.hash;
     return (
       <Navigate
-        to="/login"
+        to={`/login?redirect=${encodeURIComponent(destination)}`}
         replace
-        state={{ from: location.pathname }}
+        state={{ from: destination }}
       />
     );
   }

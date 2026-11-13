@@ -17,6 +17,9 @@ import AdminUsers from "../../components/admin/users/Users";
 import AdminPayments from "../../components/admin/payments/Payments";
 import AdminSystemInfo from "../../components/admin/system/SystemInfo";
 import AdminStudyYears from "../../components/admin/studyYears/StudyYears";
+import AdminQuizzes from "../../components/admin/quizzes/AdminQuizzes";
+import QuizEditor from "../../components/admin/quizzes/QuizEditor";
+import QuizReports from "../../components/admin/quizzes/QuizReports";
 const AdminRoutes = () => {
   const routes = useRoutes([
     {
@@ -35,6 +38,10 @@ const AdminRoutes = () => {
                   { path: "study-years", element: <AdminStudyYears /> },
                   { path: "courses", element: <AdminCourses /> },
                   { path: "topics", element: <AdminTopics /> },
+                  { path: "quizzes", element: <AdminQuizzes /> },
+                  { path: "quizzes/new", element: <QuizEditor /> },
+                  { path: "quizzes/:quizId/edit", element: <QuizEditor /> },
+                  { path: "quizzes/:quizId/results", element: <QuizReports /> },
                   { path: "users", element: <AdminUsers /> },
                   { path: "payments", element: <AdminPayments /> },
                   { path: "system-info", element: <AdminSystemInfo /> },

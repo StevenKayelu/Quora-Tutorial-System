@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Typography, Paper, Grid, CircularProgress } from "@mui/material";
+import { Box, Typography, Paper, Grid, CircularProgress, Button } from "@mui/material";
 import { useAuthContext } from "../../../utils/hooks/useCustomContext";
 import ProtectedRoutes from "../../ProtectedRoutes";
 import { useSystemInfo } from "../../../contexts/SystemInfoContext";
@@ -60,6 +60,7 @@ const AdminDashboard = () => {
       </Helmet>
 
       <Box sx={{ p: { xs: 0, sm: 3 } }}>
+        <Button variant="contained" onClick={() => navigate('/admin/quizzes')} sx={{ mb: 3 }}>Manage quizzes & examinations</Button>
         <Paper
           elevation={3}
           sx={{

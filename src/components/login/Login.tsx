@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { getLoginDestination } from "../../utils/routes/loginDestination";
 import axios from "axios";
 import img from "../../assets/sliderimages/2.jpg";
 import Notification from "../../components/Notification";
@@ -32,6 +33,8 @@ const Login = () => {
   const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL;
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedDestination = location.state?.from || new URLSearchParams(location.search).get('redirect');
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [staySignedIn, setStaySignedIn] = useState(false);
@@ -90,12 +93,8 @@ if (response.data.success && response.data.data?.user) {
       severity: "success",
     });
 
-    setTimeout(() => {
-      const roleValue = user.roleValue;
-      if (user.role === "admin" || roleValue === 1) navigate("/admin", { replace: true });
-      else if (user.role === "user" || roleValue === 0) navigate("/user", { replace: true });
-      else navigate("/", { replace: true });
-    }, 1800);
+    const role = user.role === 'admin' || user.roleValue === 1 ? 'admin' : user.role === 'user' || user.roleValue === 0 ? 'user' : '';
+    navigate(getLoginDestination(role, requestedDestination), { replace: true });
 } else {
         // Login failed on backend
         const message = response.data.message || "Login failed. Please check your credentials.";
@@ -135,7 +134,7 @@ if (response.data.success && response.data.data?.user) {
     } finally {
       setIsLoading(false);
     }
-  }, [identifier, password, staySignedIn, axiosInstance, startSession, navigate]);
+  }, [identifier, password, staySignedIn, axiosInstance, startSession, navigate, requestedDestination]);
 
   const handleResendVerification = async () => {
     const email = resendEmail.trim();

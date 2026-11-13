@@ -16,9 +16,24 @@ import Contact from "../../components/user/contact/Contact";
 import MembershipCardPage from "../../components/user/MembershipCardPage";
 import AcademicProfilePrompt from "../../components/user/shared/AcademicProfilePrompt";
 import { StudentRulesPage } from "../../components/shared/StudentRules";
+import StudentQuizzes from "../../components/user/quizzes/StudentQuizzes";
+import QuizInstructions from "../../components/user/quizzes/QuizInstructions";
+import QuizAttemptPage from "../../components/user/quizzes/QuizAttemptPage";
+import QuizResultPage from "../../components/user/quizzes/QuizResultPage";
 
 const UserRoutes = () => {
   const routes = [
+    {
+      path: "/quizzes/attempts/:attemptId",
+      element: (
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <ProtectedRoutes allowedRoles={["user"]}>
+            <QuizAttemptPage />
+          </ProtectedRoutes>
+        </ThemeProvider>
+      ),
+    },
     {
       path: "/",
       element: (
@@ -39,6 +54,18 @@ const UserRoutes = () => {
         {
           path: "my-courses",
           element: <MyCourses />,
+        },
+        {
+          path: "quizzes",
+          element: <StudentQuizzes />,
+        },
+        {
+          path: "quizzes/:quizId",
+          element: <QuizInstructions />,
+        },
+        {
+          path: "quizzes/attempts/:attemptId/result",
+          element: <QuizResultPage />,
         },
         {
           path: "courses",
